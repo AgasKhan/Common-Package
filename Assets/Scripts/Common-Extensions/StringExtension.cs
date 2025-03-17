@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using UnityEngine;
 
 public static class StringExtension
@@ -10,8 +11,8 @@ public static class StringExtension
      * Italic: idem italic
      * Color: aplica un color por richText
      * Size: 
-     *
-     *
+     * ClearRichText: Quitar todas las etiquetas
+     * Lenght: en caso de encontrar etiquetas no las cuenta (la idea es no crear strings en el medio para que sea copado en memoria)
      * 
      */
 
@@ -26,6 +27,19 @@ public static class StringExtension
         return str.Length == 0;
     }
 
+    public static bool IsEmptyOrNull(this string str)
+    {
+        return str == null || str.IsEmpty();
+    }
+
+    public static string RichText(this string str, string tag, string value = null)
+    {
+        if(value.IsEmptyOrNull())
+            return "<"+tag+">" + str + "</"+tag+">";
+        
+        return "<"+tag+"="+value+">" + str + "</"+tag+">";
+    }
+
     /// <summary>
     /// Sets tags to make the string bold
     /// </summary>
@@ -33,7 +47,7 @@ public static class StringExtension
     /// <returns><b>string</b></returns>
     public static string Bold(this string str)
     {
-        return "<b>" + str + "</b>";
+        return str.RichText("b");
     }
 
     /// <summary>
@@ -43,7 +57,7 @@ public static class StringExtension
     /// <returns><i>string</i></returns>
     public static string Italic(this string str)
     {
-        return "<i>" + str + "</i>";
+        return str.RichText("i");
     }
 
     /// <summary>
@@ -53,7 +67,7 @@ public static class StringExtension
     /// <returns><u>string</u></returns>
     public static string Underline(this string str)
     {
-        return "<u>" + str + "</u>";
+        return str.RichText("u");
     }
 
     /// <summary>
@@ -62,9 +76,9 @@ public static class StringExtension
     /// <param name="str"></param>
     /// <param name="color"></param>
     /// <returns><color=#"color">string</returns>
-    public static string Color(this string str, string color)
+    public static string Color(this string str, Color color)
     {
-        return "<color=#" + color + ">" + str;
+        return str.RichText("color","#" + ColorUtility.ToHtmlStringRGBA(color));
     }
 
     /// <summary>
@@ -75,6 +89,6 @@ public static class StringExtension
     /// <returns><size="size"px>string</returns>
     public static string Size(this string str, float size)
     {
-        return "<size=" + size + "px>" + str;
+        return str.RichText("size", size.ToString(CultureInfo.InvariantCulture));
     }
 }

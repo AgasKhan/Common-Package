@@ -13,6 +13,10 @@ public static class VectorsExtension
      * setX: 2y3 ref y retorna ref
      * SetY: 2y3
      * SetZ: 3
+     *
+     * sqrMagnitud entre 2 vectores
+     * IsInRadius: recibe una posicion la cual comparara con la poscion pasada, y devolvera true en caso de que este en el radio (utilizar sqrMagnitud para determinar si esta en el radio)
+     * aproxDir: utilizar logica sencilla para determinar la direccion normalizada (vector de largo 1) aprozimada, sin usar ninguna funcion de normalizacion
      */
 
 
@@ -47,7 +51,7 @@ public static class VectorsExtension
     /// <param name="vec"></param>
     /// <param name="z"></param>
     /// <returns></returns>
-    public static Vector3 Vec3To2XY(this Vector3 vec)
+    public static Vector2 Vec3To2XY(this Vector3 vec)
     {
         return new Vector2(vec.x, vec.y);
     }
@@ -58,7 +62,7 @@ public static class VectorsExtension
     /// <param name="vec"></param>
     /// <param name="z"></param>
     /// <returns></returns>
-    public static Vector3 Vec3To2XZ(this Vector3 vec)
+    public static Vector2 Vec3To2XZ(this Vector3 vec)
     {
         return new Vector2(vec.x, vec.z);
     }
@@ -69,7 +73,7 @@ public static class VectorsExtension
     /// Used to set all values of a vector2 to 0.
     /// </summary>
     /// <param name="vec"></param>
-    public static void SetZeroVec2(ref this Vector2 vec)
+    public static void SetZero(ref this Vector2 vec)
     {
         vec.x = 0;
         vec.y = 0;
@@ -80,52 +84,57 @@ public static class VectorsExtension
     /// Used to set all values of a vector3 to 0.
     /// </summary>
     /// <param name="vec"></param>
-    public static void SetZeroVec3(ref this Vector3 vec)
+    public static void SetZero(ref this Vector3 vec)
     {
         vec.x = 0;
         vec.y = 0;
         vec.z = 0;
     }
-    
-
 
 
     /// <summary>
     /// Used to set x of a vector2 to any number.
     /// </summary>
     /// <param name="vec"></param>
-    public static void SetXVec2(ref this Vector2 vec, float value)
+    public static ref Vector2 SetX(ref this Vector2 vec, float value)
     {
         vec.x = value;
+
+        return ref vec;
     }
 
     /// <summary>
     /// Used to set x of a vector3 to any number.
     /// </summary>
     /// <param name="vec"></param>
-    public static void SetXVec3(ref this Vector3 vec, float value)
+    public static ref Vector3 SetX(ref this Vector3 vec, float value)
     {
         vec.x = value;
+
+        return ref vec;
     }
     
-
 
     /// <summary>
     /// Used to set y of a vector2 to any number.
     /// </summary>
     /// <param name="vec"></param>
-    public static void SetYVec2(ref this Vector2 vec, float value)
+    public static ref Vector2 SetY(ref this Vector2 vec, float value)
     {
         vec.y = value;
+
+        return ref vec;
     }
 
     /// <summary>
     /// Used to set y of a vector3 to any number.
     /// </summary>
     /// <param name="vec"></param>
-    public static void SetYVec3(ref this Vector3 vec, float value)
+    public static ref Vector3 SetY(ref this Vector3 vec, float value)
     {
         vec.y = value;
+        
+        return ref vec;
     }
 
     
@@ -134,8 +143,10 @@ public static class VectorsExtension
     /// Used to set z of a vector3 to any number.
     /// </summary>
     /// <param name="vec"></param>
-    public static void SetZVec3(ref this Vector3 vec, float value)
+    public static ref Vector3 SetZ(ref this Vector3 vec, float value)
     {
         vec.z = value;
+
+        return ref vec;
     }
 }
