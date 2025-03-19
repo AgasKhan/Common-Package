@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using UnityEngine;
+using System.Text;
 
 public static class StringExtension
 {
@@ -12,7 +13,7 @@ public static class StringExtension
      * Color: aplica un color por richText
      * Size: 
      * ClearRichText: Quitar todas las etiquetas
-     * Lenght: en caso de encontrar etiquetas no las cuenta (la idea es no crear strings en el medio para que sea copado en memoria)
+     * Length: en caso de encontrar etiquetas no las cuenta (la idea es no crear strings en el medio para que sea copado en memoria)
      * 
      */
 
@@ -27,11 +28,60 @@ public static class StringExtension
         return str.Length == 0;
     }
 
+    /// <summary>
+    /// Checks if the string is empty or null
+    /// </summary>
+    /// <param name="str"></param>
+    /// <returns><b>string</b></returns>
     public static bool IsEmptyOrNull(this string str)
     {
         return str == null || str.IsEmpty();
     }
 
+    /// <summary>
+    /// Clears the Rich Text tags from a string
+    /// </summary>
+    /// <param name="str"></param>
+    /// <returns><b>string</b></returns>
+    public static string ClearRichText(this string str)
+    {
+        int openTag = 0;
+        var outCome = new StringBuilder(str);
+
+        for (int i = 0; i < outCome.Length; i++)
+        {
+            if (outCome[i] == '<')
+            {
+                openTag = i;
+            }
+
+            if (outCome[i] == '>')
+            {
+                outCome.Remove(openTag, i - openTag + 1);
+
+                openTag = 0;
+                i = 0;
+            } 
+        }
+
+        return new string(outCome.ToString());
+    }
+
+    /// <summary>
+    /// Measures the length of a string without the Rich Text tags
+    /// </summary>
+    /// <param name="str"></param>
+    /// <returns><b>string</b></returns>
+    public static int ClearLength(this string str)
+    {
+        return str.ClearRichText().Length;
+    }
+
+    /// <summary>
+    /// Sets Rich Text tags to modify the aspect of the string
+    /// </summary>
+    /// <param name="str"></param>
+    /// <returns><b>string</b></returns>
     public static string RichText(this string str, string tag, string value = null)
     {
         if(value.IsEmptyOrNull())
@@ -41,7 +91,7 @@ public static class StringExtension
     }
 
     /// <summary>
-    /// Sets tags to make the string bold
+    /// Modifies the Rich Text tags to make the string bold
     /// </summary>
     /// <param name="str"></param>
     /// <returns><b>string</b></returns>
@@ -51,7 +101,7 @@ public static class StringExtension
     }
 
     /// <summary>
-    /// Sets tags to make the string italic
+    /// Modifies Rich Text tags to make the string italic
     /// </summary>
     /// <param name="str"></param>
     /// <returns><i>string</i></returns>
@@ -61,7 +111,7 @@ public static class StringExtension
     }
 
     /// <summary>
-    /// Sets tags to make the string underlined
+    /// Modifies tags to make the string underlined
     /// </summary>
     /// <param name="str"></param>
     /// <returns><u>string</u></returns>
@@ -71,7 +121,7 @@ public static class StringExtension
     }
 
     /// <summary>
-    /// Sets tags to give the text a color
+    /// Modifies Rich Text tags to give the text a color
     /// </summary>
     /// <param name="str"></param>
     /// <param name="color"></param>
@@ -82,7 +132,7 @@ public static class StringExtension
     }
 
     /// <summary>
-    /// Sets tags to change the size of the string
+    /// Modifies Rich Text tags to change the visible size of the string
     /// </summary>
     /// <param name="str"></param>
     /// <param name="size"></param>
