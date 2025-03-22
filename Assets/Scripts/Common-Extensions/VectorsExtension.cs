@@ -14,8 +14,8 @@ public static class VectorsExtension
      * SetY: 2y3
      * SetZ: 3
      *
-     * sqrMagnitud entre 2 vectores
-     * IsInRadius: recibe una posicion la cual comparara con la poscion pasada, y devolvera true en caso de que este en el radio (utilizar sqrMagnitud para determinar si esta en el radio)
+     * sqrMagnitud entre 2 vectores HECHO
+     * IsInRadius: recibe una posicion la cual comparara con la poscion pasada, y devolvera true en caso de que este en el radio (utilizar sqrMagnitud para determinar si esta en el radio) HECHO
      * aproxDir: utilizar logica sencilla para determinar la direccion normalizada (vector de largo 1) aprozimada, sin usar ninguna funcion de normalizacion
      */
 
@@ -149,4 +149,67 @@ public static class VectorsExtension
 
         return ref vec;
     }
+
+    /// <summary>
+    /// Used to... what is it used for again?
+    /// </summary>
+    /// <param name="vec1"></param>
+    /// <param name="vec2"></param>
+    public static float Vector2SQRMagnitudBetween(this Vector2 vec1, Vector2 vec2)
+    {
+        Vector2 difference = vec1 - vec2;
+
+        return difference.sqrMagnitude;
+    }
+
+    /// <summary>
+    /// Used to... what is it used for again?
+    /// </summary>
+    /// <param name="vec1"></param>
+    /// <param name="vec2"></param>
+    public static float Vector3SQRMagnitudBetween(this Vector3 vec1, Vector3 vec2)
+    {
+        Vector3 difference = vec1 - vec2;
+
+        return difference.sqrMagnitude;
+    }
+
+    /// <summary>
+    /// Used to... what is it used for again?
+    /// </summary>
+    /// <param name="vec1"></param>
+    /// <param name="vec2"></param>
+    public static bool Vector2IsInRadius(this Vector2 vec1, Vector2 vec2, float closeDistance, bool isinRadius)
+    {
+            float sqrLen = Vector2SQRMagnitudBetween(vec1, vec2);
+            if(sqrLen < closeDistance * closeDistance)
+            {
+            isinRadius = true;
+            }
+            else
+            {
+            isinRadius = false;
+            }
+        return isinRadius;
+    }
+
+    /// <summary>
+    /// Used to... what is it used for again?
+    /// </summary>
+    /// <param name="vec1"></param>
+    /// <param name="vec2"></param>
+    public static bool Vector3IsInRadius(this Vector3 vec1, Vector3 vec2, float closeDistance, bool isinRadius)
+    {
+        float sqrLen = Vector3SQRMagnitudBetween(vec1, vec2);
+        if (sqrLen < closeDistance * closeDistance)
+        {
+            isinRadius = true;
+        }
+        else
+        {
+            isinRadius = false;
+        }
+        return isinRadius;
+    }
+
 }
