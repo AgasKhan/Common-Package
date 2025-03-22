@@ -212,4 +212,31 @@ public static class VectorsExtension
         return isinRadius;
     }
 
+    /// <summary>
+    /// Used to... what is it used for again?
+    /// </summary>
+    /// <param name="vec"></param>
+    public static Vector2 AproxDir(Vector2 vec)
+    {
+        if (vec == Vector2.zero)
+            return Vector2.zero;
+
+        float approxMagnitude = Mathf.Abs(vec.x) + Mathf.Abs(vec.y);
+
+        return new Vector2(vec.x / approxMagnitude, vec.y / approxMagnitude);
+    }
+
+    /// <summary>
+    /// Used to... what is it used for again?
+    /// </summary>
+    /// <param name="vec"></param>
+    public static Vector3 AproxDir(Vector3 vec)
+    {
+        if (vec == Vector3.zero)
+            return Vector3.zero;
+
+        float approxMagnitude = Mathf.Abs(vec.x) + Mathf.Abs(vec.y) + Mathf.Abs(vec.z);
+
+        return new Vector3(vec.x / approxMagnitude, vec.y / approxMagnitude, vec.z / approxMagnitude);
+    }
 }
