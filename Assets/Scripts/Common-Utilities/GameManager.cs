@@ -1,20 +1,14 @@
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
 
 public class GameManager : MonoBehaviour, IUpdateManager, ILateUpdateManager, IFixedUpdateManager
 {
-    interface IGameManagerState : IState<FSMGameManager>, ISuperUpdateManager
-    {
-        public void OnFixed(FSMGameManager gameManager);
-
-        public void OnLate(FSMGameManager gameManager);
-    }
-    
-    
     [System.Serializable]
-    class FSMGameManager : FSMParent<FSMGameManager,GameManager,IGameManagerState>
+    private class FSMGameManager : FSMParent<FSMGameManager,GameManager,GameManagerState>
     {
-        public GamePlayState gamePlay = new GamePlayState();
+        public GameManagerState gamePlay = new GameManagerState();
         public LoadState load = new LoadState();
 
         public void FixedUpdate()
@@ -33,28 +27,63 @@ public class GameManager : MonoBehaviour, IUpdateManager, ILateUpdateManager, IF
         }
     }
     
-    
     [System.Serializable]
-    class GamePlayState : IGameManagerState
+    private class GameManagerState : IState<FSMGameManager>, ISuperUpdateManager
     {
-        [SerializeField]
-        public UnityEvent onPlay = new UnityEvent();
-        
         public event UnityAction OnUpdateEvnt;
         public event UnityAction OnLateUpdateEvnt;
         public event UnityAction OnFixedUpdateEvnt;
         
+        public event UnityAction EventQueue
+        {
+            add
+            {
+                eventQueue.Enqueue(value);
+            }
+            remove{}
+        }
+
+        public IEnumerator RoutineQueue
+        {
+            set => routineQueue.Enqueue(value);
+        }
+
+        public virtual bool FrameRateTreshold => GameManager.BelowHightFrameRate;
+
         [SerializeField]
-        public UnityEvent onPause = new UnityEvent();
+        public UnityEvent onEnter = new UnityEvent();
+        
+        [SerializeField]
+        public UnityEvent onExit = new UnityEvent();
+        
+        protected ProgressQueue<UnityAction> eventQueue = new();
+        
+        protected ProgressQueue<IEnumerator> routineQueue = new();
+
+        private Coroutine _coroutine;
+
+        private bool _isEnter;
         
         public void OnEnter(FSMGameManager context)
         {
-            onPlay.Invoke();
+            _isEnter = true;
+            onEnter.Invoke();
+            
+            _coroutine ??= context.Context.StartCoroutine(Routine());//Ejecuto la corrutina si no se estaba ejecutando
         }
 
         public void OnStay(FSMGameManager context)
         {
             OnUpdateEvnt?.Invoke();
+
+            do
+            {
+                if(eventQueue.TryDequeue(out var result))
+                    result.Invoke();
+                else
+                    break;
+                
+            } while (FrameRateTreshold);
         }
         
         public void OnLate(FSMGameManager gameManager)
@@ -69,42 +98,37 @@ public class GameManager : MonoBehaviour, IUpdateManager, ILateUpdateManager, IF
 
         public void OnExit(FSMGameManager context)
         {
-            onPause.Invoke();
+            _isEnter = false;
+            onExit.Invoke();
+        }
+
+        private IEnumerator Routine()
+        {
+            while (_isEnter)
+            {
+                do
+                {
+                    if(routineQueue.TryDequeue(out var routine))
+                        yield return routine;
+                    else
+                        break;
+                
+                } while (FrameRateTreshold);
+
+                yield return null;
+            }
+
+            _coroutine = null;
         }
     }
     
     
     [System.Serializable]
-    class LoadState : IGameManagerState
+    private class LoadState : GameManagerState
     {
-        public event UnityAction OnUpdateEvnt;
-        public event UnityAction OnLateUpdateEvnt;
-        public event UnityAction OnFixedUpdateEvnt;
+        public override bool FrameRateTreshold => GameManager.BelowLowFrameRate;
         
-        public void OnEnter(FSMGameManager context)
-        {
-            
-        }
-
-        public void OnStay(FSMGameManager context)
-        {
-            
-        }
-        
-        public void OnFixed(FSMGameManager gameManager)
-        {
-            
-        }
-
-        public void OnLate(FSMGameManager gameManager)
-        {
-            
-        }
-
-        public void OnExit(FSMGameManager context)
-        {
-            
-        }
+        public float ProgressQueue => (routineQueue.Progress + eventQueue.Progress) / 2; 
     }
     
     public static GameManager instance { get; private set; }
@@ -127,11 +151,11 @@ public class GameManager : MonoBehaviour, IUpdateManager, ILateUpdateManager, IF
     {
         add
         {
-            instance._fsmGameManager.gamePlay.onPlay.AddListener(value);
+            instance._fsmGameManager.gamePlay.onEnter.AddListener(value);
         }
         remove
         {
-            instance._fsmGameManager.gamePlay.onPlay.RemoveListener(value);
+            instance._fsmGameManager.gamePlay.onEnter.RemoveListener(value);
         }
     }
     
@@ -139,17 +163,17 @@ public class GameManager : MonoBehaviour, IUpdateManager, ILateUpdateManager, IF
     {
         add
         {
-            instance._fsmGameManager.gamePlay.onPause.AddListener(value);
+            instance._fsmGameManager.gamePlay.onExit.AddListener(value);
         }
         remove
         {
-            instance._fsmGameManager.gamePlay.onPause.RemoveListener(value);
+            instance._fsmGameManager.gamePlay.onExit.RemoveListener(value);
         }
     }
 
-    public static ISuperUpdateManager GamePlay => instance._fsmGameManager.gamePlay;
+    public static ISuperUpdateManager GamePlayManager => instance._fsmGameManager.gamePlay;
     
-    public static ISuperUpdateManager Load => instance._fsmGameManager.load;
+    public static ISuperUpdateManager LoadManager => instance._fsmGameManager.load;
     
     event UnityAction IUpdateManager.OnUpdateEvnt
     {
@@ -291,17 +315,47 @@ public interface IUpdateManager
         lvalue.OnUpdateEvnt += rvalue.MyUpdate;
         return lvalue;
     }
+    
+    public static IUpdateManager operator - (IUpdateManager lvalue, IUpdate rvalue)
+    {
+        lvalue.OnUpdateEvnt -= rvalue.MyUpdate;
+        return lvalue;
+    }
 
     public event UnityAction OnUpdateEvnt;
 }
 
 public interface ILateUpdateManager
 {
+    public static ILateUpdateManager operator + (ILateUpdateManager lvalue, ILateUpdate rvalue)
+    {
+        lvalue.OnLateUpdateEvnt += rvalue.MyLateUpdate;
+        return lvalue;
+    }
+    
+    public static ILateUpdateManager operator - (ILateUpdateManager lvalue, ILateUpdate rvalue)
+    {
+        lvalue.OnLateUpdateEvnt -= rvalue.MyLateUpdate;
+        return lvalue;
+    }
+    
     public event UnityAction OnLateUpdateEvnt;
 }
 
 public interface IFixedUpdateManager
 {
+    public static IFixedUpdateManager operator + (IFixedUpdateManager lvalue, IFixedUpdate rvalue)
+    {
+        lvalue.OnFixedUpdateEvnt += rvalue.MyFixedUpdate;
+        return lvalue;
+    }
+    
+    public static IFixedUpdateManager operator - (IFixedUpdateManager lvalue, IFixedUpdate rvalue)
+    {
+        lvalue.OnFixedUpdateEvnt -= rvalue.MyFixedUpdate;
+        return lvalue;
+    }
+    
     public event UnityAction OnFixedUpdateEvnt;
 }
 
@@ -312,6 +366,15 @@ public interface IUpdate
     public void MyUpdate();
 }
 
+public interface IFixedUpdate
+{
+    public void MyFixedUpdate();
+}
+
+public interface ILateUpdate
+{
+    public void MyLateUpdate();
+}
 
 
 
@@ -403,4 +466,35 @@ public class FPSCounter //: IFPSCounter
     }
 }
 
+public class ProgressQueue<T>
+{
+    private Queue<T> queue = new();
 
+    public float Progress => QueueCount == 0 ? 1 : ProgressCount / (float)QueueCount;
+
+    private int ProgressCount { get; set; }
+
+    private int QueueCount { get; set; }
+    
+    public void Enqueue(T value)
+    {
+        queue.Enqueue(value);
+        QueueCount++;
+    }
+
+    public bool TryDequeue(out T value)
+    {
+        if (queue.TryDequeue(out value))
+        {
+            ProgressCount++;
+            return true;
+        }
+        else
+        {
+            QueueCount = 0;
+            ProgressCount = 0;
+        }
+
+        return false;
+    }
+}

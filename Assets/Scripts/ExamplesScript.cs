@@ -12,7 +12,7 @@ public class ExamplesScript : MonoBehaviour, IUpdate
         _updateManager = GetComponentInParent<IUpdateManager>();
 
         if (_updateManager == null)
-            _updateManager = GameManager.GamePlay;
+            _updateManager = GameManager.GamePlayManager;
 
         _updateManager += this;
         
