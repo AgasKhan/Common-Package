@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class ExamplesScript : MonoBehaviour
+public class ExamplesScript : MonoBehaviour, IUpdate
 {
     private IUpdateManager _updateManager;
     
@@ -12,12 +12,19 @@ public class ExamplesScript : MonoBehaviour
         _updateManager = GetComponentInParent<IUpdateManager>();
 
         if (_updateManager == null)
-            _updateManager = GameManager.instance;
+            _updateManager = GameManager.GamePlay;
 
-        _updateManager.OnUpdateEvnt += MyUpdate;
+        _updateManager += this;
+        
+        GameManager.OnPause += GameManagerOnPause;
     }
 
-    private void MyUpdate()
+    private void GameManagerOnPause()
+    {
+        
+    }
+
+    public void MyUpdate()
     {
         Debug.Log("Update Manager -> " + (_updateManager as Component)?.name);
     }
