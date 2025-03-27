@@ -3,8 +3,11 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
 
-public class GameManager : MonoBehaviour, IUpdateManager, ILateUpdateManager, IFixedUpdateManager
+public class GameManager : MonoBehaviour, ISuperUpdateManager
 {
+    public interface IGameManagerState : ISuperUpdateManager, IDelayedAction
+    {}
+    
     [System.Serializable]
     private class FSMGameManager : FSMParent<FSMGameManager,GameManager,GameManagerState>
     {
@@ -25,10 +28,109 @@ public class GameManager : MonoBehaviour, IUpdateManager, ILateUpdateManager, IF
         {
             Init(load, gameManager);
         }
+
+        public void Destroy()
+        {
+            gamePlay.Destroy();
+            load.Destroy();
+        }
     }
     
     [System.Serializable]
-    private class GameManagerState : IState<FSMGameManager>, ISuperUpdateManager
+    private class GameManagerState : IState<FSMGameManager>
+    {
+        [SerializeField]
+        public UnityEvent onEnter = new UnityEvent();
+        
+        [SerializeField]
+        public UnityEvent onExit = new UnityEvent();
+        
+        protected virtual bool FrameRateTreshold() => BelowHightFrameRate;
+        
+        protected GameManagerStateStatic gameManagerStateStatic;
+
+        public virtual void Init(IGameManagerState gameManagerState)
+        {
+            gameManagerStateStatic = gameManagerState as GameManagerStateStatic;
+        }
+        
+        public virtual void OnEnter(FSMGameManager param)
+        {
+            onEnter.Invoke();
+            gameManagerStateStatic.OnEnter(param, FrameRateTreshold);
+        }
+        
+        public virtual void OnStay(FSMGameManager param)
+        {
+            gameManagerStateStatic.OnStay(param, FrameRateTreshold);
+        }
+        
+        public virtual void OnFixed(FSMGameManager param)
+        {
+            gameManagerStateStatic.OnFixed(param);
+        }
+
+        public virtual void OnLate(FSMGameManager param)
+        {
+            gameManagerStateStatic.OnLate(param);
+        }
+
+        public virtual void OnExit(FSMGameManager param)
+        {
+            onExit.Invoke();
+            gameManagerStateStatic.OnExit(param);
+        }
+
+        public virtual void Destroy()
+        {
+            gameManagerStateStatic.Destroy();
+        }
+    }
+    
+    [System.Serializable]
+    private class LoadState : GameManagerState
+    {
+        protected override bool FrameRateTreshold() => GameManager.BelowLowFrameRate;
+        
+        public float ProgressQueue => (gameManagerStateStatic.routineQueue.Progress + gameManagerStateStatic.eventQueue.Progress) / 2;
+
+        public override void Init(IGameManagerState gameManagerState)
+        {
+            base.Init(gameManagerState);
+            
+            gameManagerStateStatic.onAddEventQueue += OnAddEventQueue;
+            gameManagerStateStatic.onAddRoutineQueue += OnAddRoutineQueue;
+        }
+        
+        public override void OnLate(FSMGameManager param)
+        {
+            base.OnLate(param);
+
+            if (ProgressQueue == 1)
+                param.Current = param.gamePlay;
+        }
+
+        public override void Destroy()
+        {
+            gameManagerStateStatic.onAddEventQueue -= OnAddEventQueue;
+
+            gameManagerStateStatic.onAddRoutineQueue -= OnAddRoutineQueue;
+
+            base.Destroy();
+        }
+        
+        private void OnAddEventQueue(UnityAction arg0, ProgressQueue<UnityAction> arg1)
+        {
+            //Sistema de carga
+        }
+        
+        private void OnAddRoutineQueue(IEnumerator arg0, ProgressQueue<IEnumerator> arg1)
+        {
+            //Sistema de carga
+        }
+    }
+    
+    private class GameManagerStateStatic : IGameManagerState
     {
         public event UnityAction OnUpdateEvnt;
         public event UnityAction OnLateUpdateEvnt;
@@ -38,41 +140,42 @@ public class GameManager : MonoBehaviour, IUpdateManager, ILateUpdateManager, IF
         {
             add
             {
-                eventQueue.Enqueue(value);
+                onAddEventQueue.Invoke(value, eventQueue);
             }
             remove{}
         }
 
         public IEnumerator RoutineQueue
         {
-            set => routineQueue.Enqueue(value);
+            set => onAddRoutineQueue.Invoke(value, routineQueue);
         }
-
-        public virtual bool FrameRateTreshold => GameManager.BelowHightFrameRate;
-
-        [SerializeField]
-        public UnityEvent onEnter = new UnityEvent();
         
-        [SerializeField]
-        public UnityEvent onExit = new UnityEvent();
+        public ProgressQueue<UnityAction> eventQueue = new();
         
-        protected ProgressQueue<UnityAction> eventQueue = new();
+        public ProgressQueue<IEnumerator> routineQueue = new();
         
-        protected ProgressQueue<IEnumerator> routineQueue = new();
+        public UnityAction<UnityAction, ProgressQueue<UnityAction>> onAddEventQueue;
+        
+        public UnityAction<IEnumerator, ProgressQueue<IEnumerator>> onAddRoutineQueue;
 
         private Coroutine _coroutine;
 
         private bool _isEnter;
         
-        public void OnEnter(FSMGameManager context)
+        public GameManagerStateStatic(UnityAction<UnityAction, ProgressQueue<UnityAction>> onAddEventQueue, UnityAction<IEnumerator, ProgressQueue<IEnumerator>> onAddRoutineQueue)
+        {
+            this.onAddEventQueue = onAddEventQueue;
+            this.onAddRoutineQueue = onAddRoutineQueue;
+        }
+        
+        public void OnEnter(FSMGameManager context, System.Func<bool> FrameRateTreshold)
         {
             _isEnter = true;
-            onEnter.Invoke();
             
-            _coroutine ??= context.Context.StartCoroutine(Routine());//Ejecuto la corrutina si no se estaba ejecutando
+            _coroutine ??= context.Context.StartCoroutine(Routine(FrameRateTreshold));//Ejecuto la corrutina si no se estaba ejecutando
         }
 
-        public void OnStay(FSMGameManager context)
+        public void OnStay(FSMGameManager context, System.Func<bool> FrameRateTreshold)
         {
             OnUpdateEvnt?.Invoke();
 
@@ -83,7 +186,7 @@ public class GameManager : MonoBehaviour, IUpdateManager, ILateUpdateManager, IF
                 else
                     break;
                 
-            } while (FrameRateTreshold);
+            } while (FrameRateTreshold());
         }
         
         public void OnLate(FSMGameManager gameManager)
@@ -99,10 +202,9 @@ public class GameManager : MonoBehaviour, IUpdateManager, ILateUpdateManager, IF
         public void OnExit(FSMGameManager context)
         {
             _isEnter = false;
-            onExit.Invoke();
         }
 
-        private IEnumerator Routine()
+        private IEnumerator Routine(System.Func<bool> FrameRateTreshold)
         {
             while (_isEnter)
             {
@@ -113,25 +215,32 @@ public class GameManager : MonoBehaviour, IUpdateManager, ILateUpdateManager, IF
                     else
                         break;
                 
-                } while (FrameRateTreshold);
+                } while (FrameRateTreshold());
 
                 yield return null;
             }
 
             _coroutine = null;
         }
-    }
-    
-    
-    [System.Serializable]
-    private class LoadState : GameManagerState
-    {
-        public override bool FrameRateTreshold => GameManager.BelowLowFrameRate;
-        
-        public float ProgressQueue => (routineQueue.Progress + eventQueue.Progress) / 2; 
+
+        public void Destroy()
+        {
+            OnUpdateEvnt = null;
+            OnLateUpdateEvnt = null;
+            OnFixedUpdateEvnt = null;
+
+            _isEnter = false;
+            
+            eventQueue.Clear();
+            routineQueue.Clear();
+        }
     }
     
     public static GameManager instance { get; private set; }
+
+    public static readonly IGameManagerState GamePlayManager = new GameManagerStateStatic(AddToLoadIfChargeEventQueue,AddToLoadIfChargeRoutineQueue);
+    
+    public static readonly IGameManagerState LoadManager = new GameManagerStateStatic(AddDirectEventQueue,AddDirectRoutineQueue);
     
     #region events
 
@@ -171,9 +280,7 @@ public class GameManager : MonoBehaviour, IUpdateManager, ILateUpdateManager, IF
         }
     }
 
-    public static ISuperUpdateManager GamePlayManager => instance._fsmGameManager.gamePlay;
-    
-    public static ISuperUpdateManager LoadManager => instance._fsmGameManager.load;
+
     
     event UnityAction IUpdateManager.OnUpdateEvnt
     {
@@ -211,8 +318,6 @@ public class GameManager : MonoBehaviour, IUpdateManager, ILateUpdateManager, IF
     
     [SerializeField]
     private UnityEvent onDestroy = new UnityEvent();
-
-    
     
     #endregion
 
@@ -250,6 +355,37 @@ public class GameManager : MonoBehaviour, IUpdateManager, ILateUpdateManager, IF
         Debug.LogWarning("Se creo un nuevo GameManager para la escena", newGm);
     }
 #endif
+
+    #region Static methods queue
+
+    static void AddToLoadIfChargeEventQueue(UnityAction arg0, ProgressQueue<UnityAction> progressQueue)
+    {
+        if (instance?._fsmGameManager.Current == instance?._fsmGameManager.load)
+            LoadManager.EventQueue += arg0;
+        else
+            progressQueue.Enqueue(arg0);
+    }
+    
+    static void AddToLoadIfChargeRoutineQueue(IEnumerator enumerator, ProgressQueue<IEnumerator> queue)
+    {
+        if (instance?._fsmGameManager.Current == instance?._fsmGameManager.load)
+            LoadManager.RoutineQueue = enumerator;
+        else
+            queue.Enqueue(enumerator);
+    }
+
+    static void AddDirectEventQueue(UnityAction arg0, ProgressQueue<UnityAction> progressQueue)
+    {
+        progressQueue.Enqueue(arg0);
+    }
+    
+    static void AddDirectRoutineQueue(IEnumerator arg0, ProgressQueue<IEnumerator> progressQueue)
+    {
+        progressQueue.Enqueue(arg0);
+    }
+
+    #endregion
+    
     
     private void Awake()
     {
@@ -263,6 +399,10 @@ public class GameManager : MonoBehaviour, IUpdateManager, ILateUpdateManager, IF
         onDestroy.AddListener(()=> OnDestroyEvnt?.Invoke());
         
         framesPerSecond = new(this);
+        
+        _fsmGameManager.gamePlay.Init(GamePlayManager);
+        
+        _fsmGameManager.load.Init(LoadManager);
 
         _fsmGameManager.Init(this);
         
@@ -298,6 +438,9 @@ public class GameManager : MonoBehaviour, IUpdateManager, ILateUpdateManager, IF
     private void OnDestroy()
     {
         onDestroy.Invoke();
+        
+        _fsmGameManager.Destroy();
+        
         OnAwakeEvnt = null;
         OnStartEvnt = null;
         OnUpdateEvnt = null;
@@ -305,6 +448,20 @@ public class GameManager : MonoBehaviour, IUpdateManager, ILateUpdateManager, IF
         OnFixedUpdateEvnt = null;
         OnDestroyEvnt = null;
     }
+}
+
+
+public interface IDelayedAction
+{
+    /// <summary>
+    /// Cola de acciones que se ejecutaran uno a la vez y en sucecion
+    /// </summary>
+    public event UnityAction EventQueue;
+
+    /// <summary>
+    /// Cola de coroutines que se ejecutaran una a la vez y en sucecion
+    /// </summary>
+    public IEnumerator RoutineQueue { set; }
 }
 
 
@@ -359,7 +516,10 @@ public interface IFixedUpdateManager
     public event UnityAction OnFixedUpdateEvnt;
 }
 
-public interface ISuperUpdateManager : IUpdateManager, IFixedUpdateManager, ILateUpdateManager { }
+public interface ISuperUpdateManager : IUpdateManager, IFixedUpdateManager, ILateUpdateManager
+{
+    
+}
 
 public interface IUpdate
 {
@@ -496,5 +656,12 @@ public class ProgressQueue<T>
         }
 
         return false;
+    }
+
+    public void Clear()
+    {
+        QueueCount = 0;
+        ProgressCount = 0;
+        queue.Clear();
     }
 }
