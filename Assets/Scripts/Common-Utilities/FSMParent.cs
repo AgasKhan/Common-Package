@@ -28,11 +28,14 @@ public abstract class FSMParent<TChild, TContext, TState> where TChild : FSMPare
     
     private TChild myChild => (TChild)this; 
     
-    public TState Current
+    public virtual TState Current
     {
         get => _current;
         set
         {
+            if(value.Equals(_current))
+                return;
+            
             _current.OnExit(myChild);
 
             _current = value;
@@ -56,4 +59,3 @@ public abstract class FSMParent<TChild, TContext, TState> where TChild : FSMPare
         Current.OnStay(myChild);
     }
 }
-
