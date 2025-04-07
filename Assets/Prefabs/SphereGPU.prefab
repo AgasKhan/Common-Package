@@ -121,4 +121,7 @@ MonoBehaviour:
   _meshFilter: {fileID: 5743528803404337005}
   _meshRenderer: {fileID: 6893831291142659530}
   manager: {fileID: 0}
+  stats:
+    velocity: 1
+    vectorVelocity: {x: 0, y: 0, z: 0}
   hash: 0

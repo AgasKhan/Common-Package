@@ -476,6 +476,8 @@ public class GameManager : MonoBehaviour, ISuperUpdateManager
         var currentNameBuildTarget = CurrentNamedBuildTarget;
         
         CreateInScene();
+
+        UnityEditor.PlayerSettings.allowUnsafeCode = true;
         
         UnityEditor.PlayerSettings.GetScriptingDefineSymbols(currentNameBuildTarget, out string[] defines);
         
