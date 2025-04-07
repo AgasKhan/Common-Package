@@ -194,8 +194,7 @@ namespace GPUInstancing
             
             if (aux != null)
             {
-                aux.OnValidate();
-                return;
+                return aux;
             }
             
             GameObject go = new GameObject("GameManager");

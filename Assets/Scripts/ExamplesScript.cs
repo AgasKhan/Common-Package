@@ -26,6 +26,6 @@ public class ExamplesScript : MonoBehaviour, IUpdate
 
     public void MyUpdate()
     {
-        Debug.Log("Update Manager -> " + (_updateManager as Component)?.name);
+        //Debug.Log("Update Manager -> " + (_updateManager as Component)?.name);
     }
 }

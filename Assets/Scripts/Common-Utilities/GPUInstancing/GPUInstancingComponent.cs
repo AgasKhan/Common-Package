@@ -53,6 +53,11 @@ namespace GPUInstancing
 #if UNITY_EDITOR
         private void OnValidate()
         {
+            UnityEditor.EditorApplication.delayCall += DelayCallEditor;
+        }
+
+        private void DelayCallEditor()
+        {
             _meshFilter = GetComponent<MeshFilter>();
 
             _meshRenderer = GetComponent<MeshRenderer>();

@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -420,16 +419,15 @@ public class GameManager : MonoBehaviour, ISuperUpdateManager
 
     
     #region FrameRate threshold
+    public static bool BelowUltraFrameRate => instance?.framesPerSecond.BelowHightFrameRate ?? false;
     public static bool BelowHightFrameRate => instance?.framesPerSecond.BelowHightFrameRate ?? false;
-
     public static bool BelowMediumFrameRate => instance?.framesPerSecond.BelowMediumFrameRate ?? false;
     public static bool BelowLowFrameRate => instance?.framesPerSecond.BelowLowFrameRate ?? false;
-
     public static bool BelowVeryLowFrameRate => instance?.framesPerSecond.BelowVeryLowFrameRate ?? false;
-
     public static bool BelowWatchDogFrameRate => instance?.framesPerSecond.BelowWatchDogFrameRate ?? false;
     
-    private FPSCounter<GameManager> framesPerSecond;
+    [SerializeReference]
+    private FPSCounter framesPerSecond;
     
     #endregion
 
@@ -534,6 +532,16 @@ public class GameManager : MonoBehaviour, ISuperUpdateManager
 
     #endregion
     
+    void IDeferredUpdateManager.Add(IDeferredUpdate deferredUpdate)
+    {
+        _deferredUpdateManager.Add(deferredUpdate);
+    }
+
+    void IDeferredUpdateManager.Remove(IDeferredUpdate deferredUpdate)
+    {
+        _deferredUpdateManager.Remove(deferredUpdate);
+    }
+
     
     private void Awake()
     {
@@ -568,6 +576,16 @@ public class GameManager : MonoBehaviour, ISuperUpdateManager
 
             EndUpdate();
         }
+    }
+
+    private void OnEnable()
+    {
+        framesPerSecond.Resume();
+    }
+
+    private void OnDisable()
+    {
+        framesPerSecond.Stop();
     }
 
     private void Start()
@@ -605,6 +623,11 @@ public class GameManager : MonoBehaviour, ISuperUpdateManager
         _fsmGameManager.FixedUpdate();
     }
 
+    private void OnGUI()
+    {
+        framesPerSecond.OnGui();
+    }
+
     private void OnDestroy()
     {
         framesPerSecond.Destroy();
@@ -623,18 +646,6 @@ public class GameManager : MonoBehaviour, ISuperUpdateManager
         
         _deferredUpdateManager.Clear();
     }
-
-    void IDeferredUpdateManager.Add(IDeferredUpdate deferredUpdate)
-    {
-        _deferredUpdateManager.Add(deferredUpdate);
-    }
-
-    void IDeferredUpdateManager.Remove(IDeferredUpdate deferredUpdate)
-    {
-        _deferredUpdateManager.Remove(deferredUpdate);
-    }
-
-    
 }
 
 public class ProgressQueue<T>
