@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using GPUInstancing;
 using UnityEngine;
 
 public class GridSpawn : MonoBehaviour
@@ -16,6 +17,9 @@ public class GridSpawn : MonoBehaviour
 
     [SerializeField]
     private GameObject prefab;
+    
+    [SerializeField]
+    private GPUInstancingComponent gpuInstancingComponent;
 
     [SerializeField]
     private bool showPreviusly;
@@ -32,6 +36,10 @@ public class GridSpawn : MonoBehaviour
     {
         yield return null;
         
+        var manager = GPUInstancingManager.CreateInScene();
+
+        var hash = gpuInstancingComponent.name.GetHashCode();
+        
         count.x = gridSize.x * gridSize.y * gridSize.z;
         
         for (int z = 0; z < gridSize.z; z++)
@@ -40,7 +48,13 @@ public class GridSpawn : MonoBehaviour
             {
                 for (int x = 0; x < gridSize.x; x++)
                 {
-                    Instantiate(prefab, offset + new Vector3(spacing.x * x, spacing.y * y, spacing.z * z), Quaternion.identity);
+                    
+                    manager.AddFixedElement(hash,gpuInstancingComponent.GetGPUInstancingElement(
+                        offset + new Vector3(spacing.x * x, spacing.y * y, spacing.z * z), Quaternion.identity,
+                        Vector3.one));
+                    
+                    
+                    //Instantiate(prefab, offset + new Vector3(spacing.x * x, spacing.y * y, spacing.z * z), Quaternion.identity);
 
                     count.y++;
 

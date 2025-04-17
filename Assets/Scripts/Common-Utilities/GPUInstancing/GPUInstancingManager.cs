@@ -1,10 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using UnityEngine;
 using UnityEngine.Jobs;
+using UnityEngine.Rendering;
 
 namespace GPUInstancing
 {
@@ -68,15 +71,13 @@ namespace GPUInstancing
             }
         }
 
-        abstract class RenderData<TElement ,TJobGpu> : RenderData where TJobGpu : struct, IJobGpuInstancing where TElement : IGPUInstancingElement<TJobGpu>
+        abstract class RenderData<TElement> : RenderData where TElement : IGPUInstancingElement
         {
             protected override bool Set => gpuInstancingComponents != null;
 
             protected override bool HasElements => Set && gpuInstancingComponents.Count != 0;
 
             protected override int CountElements => gpuInstancingComponents.Count;
-
-            protected TJobGpu job;
             
             protected List<TElement> gpuInstancingComponents;
             
@@ -108,23 +109,12 @@ namespace GPUInstancing
                     Create(element);
                 }
                 
-                element.Index = gpuInstancingComponents.Count;
-            
-                gpuInstancingComponents.Add(element);
+                element.AddTo(gpuInstancingComponents);
             }
 
             protected virtual void InternalRemove(TElement element, int index)
             {
-                element.Index = -1;
-            
-                gpuInstancingComponents.RemoveAtSwapBack(index);
-
-                if(gpuInstancingComponents.Count > 0 && index != gpuInstancingComponents.Count)
-                {
-                    var aux = gpuInstancingComponents[index];
-                    aux.Index = index;
-                    gpuInstancingComponents[index] = aux;
-                }
+                element.RemoveToAtSwapBack(gpuInstancingComponents);
             }
 
             protected virtual void Create(TElement element)
@@ -135,7 +125,6 @@ namespace GPUInstancing
 
                 rp = new RenderParams[element.SharedMaterials.Length];
 
-                job = element.Job;
 
                 for (int i = 0; i < element.SharedMaterials.Length; i++)
                 {
@@ -153,17 +142,20 @@ namespace GPUInstancing
             {
                 base.Dispose();
                 
-                gpuInstancingComponents.Clear();
+                //gpuInstancingComponents.Clear();
                 
                 gpuInstancingComponents = null;
-                
-                job.Dispose();
+
             }
         }
         
-        class RenderDatasFixedElement<TElement, TJobGpu> : RenderData<TElement,TJobGpu> where TJobGpu : struct, IJobGpuInstancingFor<TElement> where TElement : IGPUInstancingElement<TJobGpu>
+        class RenderDatasFixedElement<TElement> : RenderData<TElement> where TElement : IGPUInstancingElement
         {
             protected override bool AutomaticInstanceDatas => false;
+
+            private bool isChanged;
+            
+            private ParallelLoopResult task;
 
             protected override void InternalUpdate()
             {
@@ -183,23 +175,36 @@ namespace GPUInstancing
                     }
                     else
                     {
-                        job.Create(instanceDatas,gpuInstancingComponents);
+                        unsafe
+                        {
+                            InstanceData* ptr = (InstanceData*)instanceDatas.GetUnsafePtr();
                     
-                        jobHandle = job.Schedule(instanceDatas.Length, Mathf.Max(instanceDatas.Length / jobTrehold,1));
+                            task = Parallel.For(0, gpuInstancingComponents.Count, (i, state) =>
+                            {
+                                ptr[i] = gpuInstancingComponents[i].InstanceData;
+                            });
+                        }
+
+                        isChanged = true;
                     }
                 }
             }
 
             protected override void InternalLateUpdate()
             {
-                if (instanceDatas.Length < jobTrehold)
+                if(isChanged)
                 {
-                }
-                else
-                {
-                    jobHandle.Complete();
+                    if (instanceDatas.Length < jobTrehold)
+                    {
+                    }
+                    else
+                    {
+                        while (!task.IsCompleted)
+                        {
+                        }
+                    }
 
-                    instanceDatas = job.Results();
+                    isChanged = false;
                 }
 
                 for (int i = 0; i < rp.Length; i++)
@@ -209,8 +214,10 @@ namespace GPUInstancing
             }
         }
         
-        class RenderDatasMoveElement<TElement, TJobGpu> : RenderData<TElement,TJobGpu> where TJobGpu : struct, IJobGpuInstancingFor<TElement> where TElement : IGPUInstancingElement<TJobGpu>
+        class RenderDatasMoveElement<TElement> : RenderData<TElement>  where TElement : IGPUInstancingElement
         {
+            private ParallelLoopResult task;
+            
             protected override void InternalUpdate()
             {
                 if (gpuInstancingComponents.Count < jobTrehold)
@@ -222,9 +229,15 @@ namespace GPUInstancing
                 }
                 else
                 {
-                    job.Create(instanceDatas,gpuInstancingComponents);
+                    unsafe
+                    {
+                        InstanceData* ptr = (InstanceData*)instanceDatas.GetUnsafePtr();
                     
-                    jobHandle = job.Schedule(instanceDatas.Length, Mathf.Max(instanceDatas.Length / jobTrehold,1));
+                        task = Parallel.For(0, gpuInstancingComponents.Count, (i, state) =>
+                        {
+                            ptr[i] = gpuInstancingComponents[i].InstanceData;
+                        });
+                    }
                 }
             }
 
@@ -235,9 +248,9 @@ namespace GPUInstancing
                 }
                 else
                 {
-                    jobHandle.Complete();
-
-                    instanceDatas = job.Results();
+                    while (!task.IsCompleted)
+                    {
+                    }
                 }
 
                 for (int i = 0; i < rp.Length; i++)
@@ -247,9 +260,13 @@ namespace GPUInstancing
             }
         }
         
-        class RenderDatasTransform<TElement, TJobGpu> : RenderData<TElement,TJobGpu> where TJobGpu : struct, IJobGpuInstancingForTransform<TElement> where TElement : IGPUInstancingComponent<TJobGpu>
+        class RenderDatasTransform<TElement, TJobGpu> : RenderData<TElement> where TJobGpu : struct, IJobGpuInstancingForTransform<TElement> where TElement : IGPUInstancingComponent<TJobGpu>
         {
+            protected TJobGpu job;
+            
             protected TransformAccessArray transformAccessArray;
+
+            public bool isReadOnly;
 
             protected override void InternalAdd(TElement element)
             {
@@ -267,6 +284,8 @@ namespace GPUInstancing
             {
                 transformAccessArray = new TransformAccessArray(4);
                 
+                job = element.Job;
+                
                 base.Create(element);
             }
 
@@ -283,7 +302,10 @@ namespace GPUInstancing
                 {
                     job.Create(instanceDatas,gpuInstancingComponents);
                     
-                    jobHandle = job.Schedule(transformAccessArray);
+                    if(isReadOnly)
+                        jobHandle = job.ScheduleReadOnlyByRef(transformAccessArray,64);
+                    else
+                        jobHandle = job.ScheduleByRef(transformAccessArray);
                 }
             }
 
@@ -308,6 +330,8 @@ namespace GPUInstancing
             public override void Dispose()
             {
                 base.Dispose();
+                
+                job.Dispose();
                 
                 transformAccessArray.Dispose();
             }
@@ -349,31 +373,31 @@ namespace GPUInstancing
 
         private Dictionary<int, RenderData> _renderDatas = new();
 
-        public void AddFixedElement<TElement, TJobGpu>(int hash, TElement element) where TJobGpu : struct, IJobGpuInstancingFor<TElement> where TElement : IGPUInstancingElement<TJobGpu> 
+        public void AddFixedElement<TElement>(int hash, TElement element)  where TElement : IGPUInstancingElement
         {
             if (!_renderDatas.ContainsKey(hash))
             {
-                _renderDatas.Add(hash, new RenderDatasFixedElement<TElement, TJobGpu>());
+                _renderDatas.Add(hash, new RenderDatasFixedElement<TElement>());
             }
                 
             _renderDatas[hash].Add(element);
         }
         
-        public void AddMoveElement<TElement, TJobGpu>(int hash, TElement element) where TJobGpu : struct, IJobGpuInstancingFor<TElement> where TElement : IGPUInstancingElement<TJobGpu> 
+        public void AddMoveElement<TElement>(int hash, TElement element) where TElement : IGPUInstancingElement
         {
             if (!_renderDatas.ContainsKey(hash))
             {
-                _renderDatas.Add(hash, new RenderDatasMoveElement<TElement, TJobGpu>());
+                _renderDatas.Add(hash, new RenderDatasMoveElement<TElement>());
             }
                 
             _renderDatas[hash].Add(element);
         }
         
-        public void AddComponentElement<TElement, TJobGpu>(int hash, TElement element) where TJobGpu : struct, IJobGpuInstancingForTransform<TElement> where TElement : IGPUInstancingComponent<TJobGpu> 
+        public void AddComponentElement<TElement, TJobGpu>(int hash, TElement element, bool isTransformJobReadOnly = false) where TJobGpu : struct, IJobGpuInstancingForTransform<TElement> where TElement : IGPUInstancingComponent<TJobGpu> 
         {
             if (!_renderDatas.ContainsKey(hash))
             {
-                _renderDatas.Add(hash,new RenderDatasTransform<TElement, TJobGpu>());
+                _renderDatas.Add(hash,new RenderDatasTransform<TElement, TJobGpu>(){isReadOnly = isTransformJobReadOnly});
             }
                 
             _renderDatas[hash].Add(element);
@@ -416,7 +440,6 @@ namespace GPUInstancing
     public struct InstanceData 
     {
         public Matrix4x4 objectToWorld;
-        public uint renderingLayerMask;
     }
     
     public interface IJobGpuInstancing 
@@ -436,30 +459,44 @@ namespace GPUInstancing
         public void Create(NativeArray<InstanceData> instances, List<TElement> list);
     }
 
-    public interface IGPUInstancingElement
+    public interface IGPUInstancingData
     {
         public Material[] SharedMaterials { get; }
 
         public Mesh Mesh { get; }
-
-        public int Index { get; set; }
         
         public uint RenderingLayerMask { get; }
         
         public UnityEngine.Rendering.ShadowCastingMode ShadowCastingMode { get; }
 
         public bool ReceiveShadows { get; }
-        
+    }
+    
+    public interface IGetGPUInstancingElement
+    {
+        public IGPUInstancingElement GetGPUInstancingElement();
+
+        public IGPUInstancingElement GetGPUInstancingElement(Transform transform);
+
+        public IGPUInstancingElement GetGPUInstancingElement(Vector3 position, Quaternion rotation, Vector3 lossyscale);
+    }
+
+    public interface IGPUInstancingElement : IGPUInstancingData, IIndexed
+    {
         public InstanceData InstanceData { get; }
     }
 
+    /*
     public interface IGPUInstancingElement<out TJobGpu>: IGPUInstancingElement where TJobGpu : struct, IJobGpuInstancing
     {
-        public TJobGpu Job { get; }
+        
     }
+    */
     
-    public interface IGPUInstancingComponent<out TJobGpu> : IGPUInstancingElement<TJobGpu>  where TJobGpu : struct, IJobGpuInstancing
+    public interface IGPUInstancingComponent<out TJobGpu> : IGPUInstancingElement  where TJobGpu : struct, IJobGpuInstancing
     {
+        public TJobGpu Job { get; }
+        
         public Transform transform { get; }
     }
 }

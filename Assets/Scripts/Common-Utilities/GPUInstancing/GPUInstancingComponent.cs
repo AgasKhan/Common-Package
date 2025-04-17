@@ -1,60 +1,27 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using Unity.Burst;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
-using Unity.Jobs;
 using UnityEngine;
 using UnityEngine.Jobs;
 using UnityEngine.Rendering;
-using Random = UnityEngine.Random;
-
 
 namespace GPUInstancing
 {
     [RequireComponent(typeof(MeshFilter))]
     [RequireComponent(typeof(MeshRenderer))]
-    public class GPUInstancingComponent : MonoBehaviour, IGPUInstancingComponent<GPUInstancingComponent.JobComponent>, IDeferredUpdate
+    public class GPUInstancingComponent : MonoBehaviour, IGPUInstancingComponent<GPUInstancingComponent.JobComponent>, IGetGPUInstancingElement
     {
         [BurstCompile]
         public struct JobComponent : IJobGpuInstancingForTransform<GPUInstancingComponent>
         {
             [WriteOnly]
             private NativeArray<InstanceData> instances;
-            
-            private NativeArray<Stats> stats;
-
-            private Vector3 mousePosition;
 
             public void Create(NativeArray<InstanceData> instances, List<GPUInstancingComponent> list)
             {
                 this.instances = instances;
-
-                mousePosition = Input.mousePosition;
-                
-                if(stats.IsCreated && stats.Length == list.Count)
-                    return;
-
-                if (stats.IsCreated)
-                    stats.Dispose();
-
-                stats = new NativeArray<Stats>(list.Count, Allocator.Persistent);
-                
-                unsafe
-                {
-                    Stats* ptr = (Stats*)stats.GetUnsafePtr();
-                    
-                    var task = Parallel.For(0, list.Count, index =>
-                    {
-                        ptr[index] = list[index].stats;
-                    });
-
-                    while (!task.IsCompleted)//bloqueo de hilo hasta que termine c:
-                    {
-                    }
-                }
             }
 
             public NativeArray<InstanceData> Results()
@@ -64,31 +31,12 @@ namespace GPUInstancing
 
             public void Execute(int index, TransformAccess transform)
             {
-                var myStats = stats[index];
-                
-                myStats.vectorVelocity = (mousePosition - transform.position);
-
-                myStats.vectorVelocity.z = 0;
-                myStats.vectorVelocity.y = 0;
-
-                myStats.vectorVelocity = Vector3.ClampMagnitude(myStats.vectorVelocity, myStats.velocity);
-                
-                transform.position += myStats.vectorVelocity;
-                
                 instances[index] = new() { objectToWorld =Matrix4x4.TRS(transform.position, transform.rotation, transform.localScale)};
             }
             
             public void Dispose()
             {
-                stats.Dispose();
             }
-        }
-        
-        [Serializable]
-        public struct Stats
-        {
-            public float velocity;
-            public Vector3 vectorVelocity;
         }
         
         [SerializeField]
@@ -124,15 +72,11 @@ namespace GPUInstancing
 
         public bool ReceiveShadows => _meshRenderer.receiveShadows;
 
-        public Stats stats;
-
         public InstanceData InstanceData
         {
             get
             {
-                transform.position += stats.vectorVelocity;
-                
-                return new() { objectToWorld =Matrix4x4.TRS(transform.position, transform.rotation, transform.lossyScale), renderingLayerMask = RenderingLayerMask}; 
+                return new() { objectToWorld =Matrix4x4.TRS(transform.position, transform.rotation, transform.lossyScale)}; 
             }
         }
         
@@ -151,8 +95,6 @@ namespace GPUInstancing
 
             _meshRenderer = GetComponent<MeshRenderer>();
 
-            _meshRenderer.enabled = false;
-
             manager = GPUInstancingManager.CreateInScene();
 
             foreach (var material in SharedMaterials)
@@ -164,30 +106,33 @@ namespace GPUInstancing
 
         public void ChangeToGpuInstancing()
         {
-            _meshRenderer.enabled = false;
-
             enabled = true;
         }
 
         public void ChangeToInstanceMaterial()
         {
-            _meshRenderer.enabled = true;
-
             enabled = false;
         }
-        
-        public void MyDeferredUpdate()
+
+        public IGPUInstancingElement GetGPUInstancingElement()
         {
-            Materials[0].color = Color.red;
-            
-            if (Random.Range(0, 100)  != 0)
+            return GetGPUInstancingElement(transform);
+        }
+        
+        public IGPUInstancingElement GetGPUInstancingElement(Transform transform)
+        {
+            return GetGPUInstancingElement(transform.position, transform.rotation, transform.lossyScale);
+        }
+        
+        public IGPUInstancingElement GetGPUInstancingElement(Vector3 position, Quaternion rotation, Vector3 lossyscale)
+        {
+            return new GPUInstancingElement(this)
             {
-                GameManager.GamePlayManager.EventQueue += ChangeToGpuInstancing;  
-            }
-            else
-            {
-                GameManager.GamePlayManager.EventQueue += ()=> Materials[0].color = Random.ColorHSV();
-            }
+                Index = Index,
+                Position = position,
+                Rotation = rotation,
+                LossyScale = lossyscale
+            };
         }
         
         private void Awake()
@@ -196,22 +141,152 @@ namespace GPUInstancing
             
             if(manager==null)
                 manager = GPUInstancingManager.CreateInScene();
-            
-            
-            stats.velocity = Random.Range(1f, 10f);
-
-            GameManager.DeferredUpdates = this;
         }
         
         private void OnEnable()
         {
             manager.AddComponentElement<GPUInstancingComponent, JobComponent>(hash,this);
+            _meshRenderer.enabled = false;
         }
 
         private void OnDisable()
         {
             manager.Remove(hash,this);
+            _meshRenderer.enabled = true;
+        }
+    }
+
+    [Serializable]
+    public class GPUInstancingData : IGPUInstancingData, IGetGPUInstancingElement
+    {
+        [field:SerializeField]
+        public Material[] SharedMaterials { get; set; }
+        
+        [field:SerializeField]
+        public Mesh Mesh { get; set; }
+        
+        [field:SerializeField]
+        public uint RenderingLayerMask { get; set; }
+        
+        [field:SerializeField]
+        public ShadowCastingMode ShadowCastingMode { get; set; }
+        
+        [field:SerializeField]
+        public bool ReceiveShadows { get; set; }
+
+        public IGPUInstancingElement GetGPUInstancingElement()
+        {
+            return new GPUInstancingElement(this);
+        }
+        
+        public IGPUInstancingElement GetGPUInstancingElement(Transform transform)
+        {
+            return GetGPUInstancingElement(transform.position, transform.rotation, transform.lossyScale);
+        }
+        
+        public IGPUInstancingElement GetGPUInstancingElement(Vector3 position, Quaternion rotation, Vector3 lossyscale)
+        {
+            return new GPUInstancingElement(this)
+            {
+                Index = 0,
+                Position = position,
+                Rotation = rotation,
+                LossyScale = lossyscale
+            };
+        }
+    }
+    
+    [Serializable]
+    public class GPUInstancingElement : IGPUInstancingElement
+    {
+        [BurstCompile, Serializable]
+        public struct DataTransform
+        {
+            public Vector3 position;
+    
+            public Quaternion rotation;
+    
+            public Vector3 lossyScale;
+        }
+        
+        public int Index { get; set; }
+        
+        public Material[] SharedMaterials => _gpuInstancingData.SharedMaterials;
+
+        public Mesh Mesh => _gpuInstancingData.Mesh;
+
+        public uint RenderingLayerMask => _gpuInstancingData.RenderingLayerMask;
+
+        public ShadowCastingMode ShadowCastingMode => _gpuInstancingData.ShadowCastingMode;
+
+        public bool ReceiveShadows => _gpuInstancingData.ReceiveShadows;
+
+        private IGPUInstancingData _gpuInstancingData;
+        
+        public event System.Action<GPUInstancingElement> OnRenderParallelUpdate
+        {
+            add
+            {
+                if (_onParallelUpdate == null)
+                    _update = ExecuteAction;
+                
+                _onParallelUpdate += value;
+            }
+            remove
+            {
+                _onParallelUpdate -= value;
+                
+                if (_onParallelUpdate == null)
+                    _update = VoidAction;
+            }
+        }
+        
+        [field:SerializeField]
+        public DataTransform transform;
+        
+        System.Action<GPUInstancingElement> _onParallelUpdate;
+
+        System.Action<GPUInstancingElement> _update;
+
+        public Vector3 Position
+        {
+            get => transform.position;
+            set => transform.position = value;
+        }
+    
+        public Quaternion Rotation
+        {
+            get => transform.rotation;
+            set => transform.rotation = value;
+        }
+    
+        public Vector3 LossyScale
+        {
+            get => transform.lossyScale;
+            set => transform.lossyScale = value;
+        }
+
+        public InstanceData InstanceData
+        {
+            get
+            {
+                _update(this);
+                return new() { objectToWorld =Matrix4x4.TRS(Position, Rotation, LossyScale)};       
+            }
+        }
+        
+        public GPUInstancingElement(IGPUInstancingData gpuInstancingData)
+        {
+            _gpuInstancingData = gpuInstancingData;
+            _update = VoidAction;
+        }
+        
+        static void VoidAction(GPUInstancingElement gpuInstancingElement)
+        {}
+
+        static void ExecuteAction(GPUInstancingElement gpuInstancingElement)
+        {
+            gpuInstancingElement._onParallelUpdate(gpuInstancingElement);
         }
     }
 }
-

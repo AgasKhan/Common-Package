@@ -300,10 +300,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e05b67f1ee0d7da4190f95a83d27f056, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  gridSize: {x: 12, y: 50, z: 20}
-  spacing: {x: 18, y: 1.5, z: 1.5}
+  gridSize: {x: 100, y: 50, z: 20}
+  spacing: {x: 1.5, y: 1.5, z: 1.5}
   offset: {x: 0, y: -15, z: 10}
   prefab: {fileID: 4819915355374550569, guid: 9ca923eebcec45541a984ec165c46dab, type: 3}
+  gpuInstancingComponent: {fileID: 1077885866686065938, guid: 9ca923eebcec45541a984ec165c46dab, type: 3}
   showPreviusly: 0
   count: {x: 0, y: 0, z: 0}
 --- !u!4 &584741325
@@ -452,23 +453,23 @@ MonoBehaviour:
     objectPool: {fileID: 11400000, guid: d4f784a23c8a48a4f96e94f6f3f3974b, type: 2}
     poolObjects:
     - poolObjectsData:
-        rid: 4218115982020575461
+        rid: 4218116123653046304
       defaultParent: {fileID: 0}
       pool: []
     - poolObjectsData:
-        rid: 4218115982020575462
+        rid: 4218116123653046305
       defaultParent: {fileID: 0}
       pool: []
   references:
     version: 2
     RefIds:
-    - rid: 4218115982020575461
+    - rid: 4218116123653046304
       type: {class: ObjectPoolData/PoolObjectsData, ns: , asm: Assembly-CSharp}
       data:
         prefab: {fileID: 0}
         utilityRefence: []
         amount: 0
-    - rid: 4218115982020575462
+    - rid: 4218116123653046305
       type: {class: ObjectPoolData/PoolObjectsData, ns: , asm: Assembly-CSharp}
       data:
         prefab: {fileID: 0}
@@ -509,8 +510,14 @@ MonoBehaviour:
       m_Calls: []
   framesPerSecond:
     rid: -2
+  deferredUpdateTrehold:
+    trehold: 5
   _fsmGameManager:
     gamePlay:
+      frameRateEventTreshold:
+        trehold: 3
+      frameRateDeferredTreshold:
+        trehold: 5
       onEnter:
         m_PersistentCalls:
           m_Calls: []
@@ -518,6 +525,10 @@ MonoBehaviour:
         m_PersistentCalls:
           m_Calls: []
     load:
+      frameRateEventTreshold:
+        trehold: 1
+      frameRateDeferredTreshold:
+        trehold: 2
       onEnter:
         m_PersistentCalls:
           m_Calls: []

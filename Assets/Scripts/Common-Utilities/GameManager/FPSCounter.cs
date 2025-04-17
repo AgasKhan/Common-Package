@@ -4,14 +4,17 @@ using System.Collections.Generic;
 using Unity.Collections;
 using UnityEngine;
 
-/*
 public interface IFPSCounter
 {
+    /// <summary>
+    /// Below to 165 fps
+    /// </summary>
+    public bool BelowUltraFrameRate { get; }
+    
     /// <summary>
     /// Below to 120 fps
     /// </summary>
     public bool BelowHightFrameRate { get; }
-
 
     /// <summary>
     /// Below to 60 fps
@@ -33,19 +36,27 @@ public interface IFPSCounter
     /// </summary>
     public bool BelowWatchDogFrameRate { get; }
 }
-*/
+
 
 [Serializable]
-public class FPSCounter//: IFPSCounter
+public class FPSCounter: IFPSCounter
 {
+    [Serializable]
+    public enum FPSTrehold
+    {
+        BelowWatchDogFrameRate,
+        BelowVeryLowFrameRate,
+        BelowLowFrameRate,
+        BelowMediumFrameRate,
+        BelowHightFrameRate,
+        BelowUltraFrameRate
+    }
     
     private const int FPS165 = (1000 / 160);
     private const int FPS120 = (1000 / 120);
     private const int FPS60 = (1000 / 60);
     private const int FPS30 = (1000 / 30);
     private const int FPS15 = (1000 / 15);
-
-
 
     /// <summary>
     /// Below to 165 fps
@@ -193,9 +204,44 @@ public class FPSCounter//: IFPSCounter
         _average.Dispose();
     }
 
-    public void OnGui()
+    public void OnGui(Rect rect)
     {
-        GUI.Label(new Rect (25, 25, 500, 50), $"Updates: {AverageUpdateTiming}Ms\t Render:{AverageRenderTiming}Ms\nTotal:{AverageTiming}Ms \tFps:{(int)(1/(AverageTiming/1000f))}");
+        GUI.Label(rect, $"Updates: {AverageUpdateTiming}Ms\t Render:{AverageRenderTiming}Ms\nTotal:{AverageTiming}Ms \tFps:{(int)(1/(AverageTiming/1000f))}");
+    }
+}
+
+public static class FPScounterExtension
+{
+    public static bool IsBelow(this FPSCounter.FPSTrehold trehold, IFPSCounter fpsCounter)
+    {
+        return fpsCounter.IsBelow(trehold);
+    }
+    
+    public static bool IsBelow(this IFPSCounter fpsCounter, FPSCounter.FPSTrehold fpsTrehold)
+    {
+        switch (fpsTrehold)
+        {
+            case FPSCounter.FPSTrehold.BelowWatchDogFrameRate:
+                return fpsCounter.BelowWatchDogFrameRate;
+                
+            case FPSCounter.FPSTrehold.BelowVeryLowFrameRate:
+                return fpsCounter.BelowVeryLowFrameRate;
+            
+            case FPSCounter.FPSTrehold.BelowLowFrameRate:
+                return fpsCounter.BelowLowFrameRate;
+            
+            case FPSCounter.FPSTrehold.BelowMediumFrameRate:
+                return fpsCounter.BelowMediumFrameRate;
+            
+            case FPSCounter.FPSTrehold.BelowHightFrameRate:
+                return fpsCounter.BelowHightFrameRate;
+            
+            case FPSCounter.FPSTrehold.BelowUltraFrameRate:
+                return fpsCounter.BelowUltraFrameRate;
+            
+            default:
+                throw new ArgumentOutOfRangeException(nameof(fpsTrehold), fpsTrehold, null);
+        }
     }
 }
 
@@ -251,7 +297,7 @@ public class Average<T> : IDisposable where T : unmanaged
             elements.Dispose();
 
         _disposed = true;
-        GC.SuppressFinalize(this);
+        //GC.SuppressFinalize(this);
     }
     
     ~Average()
