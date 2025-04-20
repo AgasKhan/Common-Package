@@ -427,7 +427,6 @@ GameObject:
   - component: {fileID: 1603794888}
   - component: {fileID: 1603794887}
   - component: {fileID: 1603794886}
-  - component: {fileID: 1603794889}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -453,23 +452,23 @@ MonoBehaviour:
     objectPool: {fileID: 11400000, guid: d4f784a23c8a48a4f96e94f6f3f3974b, type: 2}
     poolObjects:
     - poolObjectsData:
-        rid: 4218116123653046304
+        rid: 3454005187495854135
       defaultParent: {fileID: 0}
       pool: []
     - poolObjectsData:
-        rid: 4218116123653046305
+        rid: 3454005187495854136
       defaultParent: {fileID: 0}
       pool: []
   references:
     version: 2
     RefIds:
-    - rid: 4218116123653046304
+    - rid: 3454005187495854135
       type: {class: ObjectPoolData/PoolObjectsData, ns: , asm: Assembly-CSharp}
       data:
         prefab: {fileID: 0}
         utilityRefence: []
         amount: 0
-    - rid: 4218116123653046305
+    - rid: 3454005187495854136
       type: {class: ObjectPoolData/PoolObjectsData, ns: , asm: Assembly-CSharp}
       data:
         prefab: {fileID: 0}
@@ -555,18 +554,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1603794889
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1603794885}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0a85fcaaebc78554db2e4756c5d9ff66, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

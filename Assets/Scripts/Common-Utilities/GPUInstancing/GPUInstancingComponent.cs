@@ -91,11 +91,12 @@ namespace GPUInstancing
 
         private void DelayCallEditor()
         {
+            if(this == null)
+                return;
+            
             _meshFilter = GetComponent<MeshFilter>();
 
             _meshRenderer = GetComponent<MeshRenderer>();
-
-            manager = GPUInstancingManager.CreateInScene();
 
             foreach (var material in SharedMaterials)
             {
@@ -140,7 +141,7 @@ namespace GPUInstancing
             hash = name.GetHashCode();
             
             if(manager==null)
-                manager = GPUInstancingManager.CreateInScene();
+                manager = GPUInstancingManager.Instance;
         }
         
         private void OnEnable()

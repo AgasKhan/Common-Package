@@ -4,27 +4,33 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
 
-public interface IUpdate
+public interface IEnable
+{
+    bool Enable {get;}
+}
+
+public interface IUpdate : IEnable, IIndexed
 {
     public void MyUpdate();
 }
 
-public interface ILateUpdate
+public interface ILateUpdate : IEnable, IIndexed
 {
     public void MyLateUpdate();
+    
 }
 
-public interface IEndUpdate
+public interface IEndUpdate : IEnable, IIndexed
 {
     public void MyEndUpdate();
 }
 
-public interface IDeferredUpdate : IIndexed
+public interface IDeferredUpdate : IEnable, IIndexed
 {
     public void MyDeferredUpdate();
 }
 
-public interface IFixedUpdate
+public interface IFixedUpdate : IEnable, IIndexed
 {
     public void MyFixedUpdate();
 }
@@ -148,6 +154,10 @@ namespace UpdateManager
     {
         public abstract class Data : IUpdate, IDisposable
         {
+            public int Index { get; set; }
+        
+            public abstract bool Enable { get; }
+            
             public abstract void Add(IIndexed Object);
             public abstract void Remove(IIndexed Object);
 
@@ -158,6 +168,8 @@ namespace UpdateManager
         
         public class Data<T> : Data where T : IIndexed
         {
+            public override bool Enable => _updateList.Count > 0;
+
             private GmFPSTrehold gmFPSTrehold;
             
             private RotatingList<T> _updateList = new();
@@ -228,6 +240,10 @@ namespace UpdateManager
         
         private Dictionary<System.Delegate, Data> _dataOriented = new ();
 
+        public bool Enable => _dataOriented.Count > 0;
+        
+        public int Index { get; set; }
+
         public void Add<T>(T Object, IDataOrientedUpdateManager.Delegate<T> update, GmFPSTrehold? gmFPSTrehold = null) where T : IIndexed
         {
             if (_dataOriented.TryGetValue(update, out var value))
@@ -256,7 +272,8 @@ namespace UpdateManager
         {
             foreach (var keyValue in _dataOriented)
             {
-                keyValue.Value.MyUpdate();
+                if(keyValue.Value.Enable)
+                    keyValue.Value.MyUpdate();
             }
         }
 
@@ -298,7 +315,8 @@ namespace UpdateManager
             
             foreach (var updateDeferred in _updateList)
             {
-                updateDeferred.MyDeferredUpdate();
+                if(updateDeferred.Enable)
+                    updateDeferred.MyDeferredUpdate();
 
                 if (gmFPSTrehold)
                 {

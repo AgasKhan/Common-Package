@@ -5,6 +5,9 @@ using UnityEngine;
 
 public class ExamplesScript : MonoBehaviour, IUpdate
 {
+    public int Index { get; set; }
+    public bool Enable {get; set;}
+
     private IUpdateManager _updateManager;
     
     private void Awake()

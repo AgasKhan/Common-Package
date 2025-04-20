@@ -8,10 +8,11 @@ using Unity.Jobs;
 using UnityEngine;
 using UnityEngine.Jobs;
 using UnityEngine.Rendering;
+using UnityEngine.SceneManagement;
 
 namespace GPUInstancing
 {
-    public class GPUInstancingManager : MonoBehaviour
+    public class GPUInstancingManager : IUpdate, ILateUpdate
     {
         abstract class RenderData : IDisposable
         {
@@ -337,41 +338,13 @@ namespace GPUInstancing
             }
         }
         
-        
-        
-        
-    #if UNITY_EDITOR
-        
-        [UnityEditor.Callbacks.DidReloadScripts]
-        static void EditorReloadScript()
-        {
-            CreateInScene();
-        }
-
-        public static GPUInstancingManager CreateInScene()
-        {
-    #if HasGamemanager
-           return GameManager.CreateManagerInScene<GPUInstancingManager>();
-    #else
-            var aux = FindObjectOfType<GPUInstancingManager>();
-            
-            if (aux != null)
-            {
-                return aux;
-            }
-            
-            GameObject go = new GameObject("GameManager");
-            var newGm = go.AddComponent<GPUInstancingManager>();
-            
-            Debug.LogWarning("Se creo un Gamemanager en la escena que contiene el GPUInstancingManager", newGm);
-            
-            return newGm;
-    #endif
-        }
-
-    #endif
+        public static GPUInstancingManager Instance { get; private set; }
 
         private Dictionary<int, RenderData> _renderDatas = new();
+
+        public bool Enable => true;
+        
+        public int Index { get; set; }
 
         public void AddFixedElement<TElement>(int hash, TElement element)  where TElement : IGPUInstancingElement
         {
@@ -411,7 +384,7 @@ namespace GPUInstancing
             _renderDatas[hash].Remove(element);
         }
         
-        private void Update()
+        void IUpdate.MyUpdate()
         {
             foreach (var keyValue in _renderDatas)
             {
@@ -419,15 +392,45 @@ namespace GPUInstancing
             }
         }
 
-        private void LateUpdate()
+        void ILateUpdate.MyLateUpdate()
         {
             foreach (var keyValue in _renderDatas)
             {
                 keyValue.Value.LateUpdate();
             }
         }
+        
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        public static void Init()
+        {
+            Instance = new GPUInstancingManager();
+            UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnDestroy;
+            EngineUpdate.AddPostUpdate(Instance);
+            EngineUpdate.AddPreLateUpdate(Instance);
+            
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.playModeStateChanged -= OnPlayModeState;
+            UnityEditor.EditorApplication.playModeStateChanged += OnPlayModeState;
+            
+            void OnPlayModeState(UnityEditor.PlayModeStateChange state) 
+            {
+                if (state == UnityEditor.PlayModeStateChange.ExitingPlayMode) 
+                {
+                    Instance.Clear();
+                }
+            }
+#endif
+        }
+        
+        private static void OnDestroy(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
+        {
+            if(mode == LoadSceneMode.Additive)
+                return;
+            
+            Instance.Clear();
+        }
 
-        private void OnDestroy()
+        void Clear()
         {
             foreach (var keyValue in _renderDatas)
             {

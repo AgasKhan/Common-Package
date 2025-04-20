@@ -36,7 +36,7 @@ public class GridSpawn : MonoBehaviour
     {
         yield return null;
         
-        var manager = GPUInstancingManager.CreateInScene();
+        var manager = GPUInstancingManager.Instance;
 
         var hash = gpuInstancingComponent.name.GetHashCode();
         
