@@ -27,6 +27,11 @@ public class GridSpawn : MonoBehaviour
     [SerializeField]
     private Vector3 count;
     
+    
+    static Vector3 mousePosition;
+
+    static float dt;
+    
     private void Awake()
     {
         GameManager.LoadManager.RoutineQueue = MyStart();
@@ -48,10 +53,12 @@ public class GridSpawn : MonoBehaviour
             {
                 for (int x = 0; x < gridSize.x; x++)
                 {
-                    
-                    manager.AddFixedElement(hash,gpuInstancingComponent.GetGPUInstancingElement(
+
+                    var element = gpuInstancingComponent.GetGPUInstancingElement(
                         offset + new Vector3(spacing.x * x, spacing.y * y, spacing.z * z), Quaternion.identity,
-                        Vector3.one));
+                        Vector3.one, UpdateFunc);
+                    
+                    manager.AddMoveElement(hash,element);
                     
                     
                     //Instantiate(prefab, offset + new Vector3(spacing.x * x, spacing.y * y, spacing.z * z), Quaternion.identity);
@@ -62,11 +69,26 @@ public class GridSpawn : MonoBehaviour
 
                     count.z = count.z / 60;
 
-                    if (GameManager.BelowLowFrameRate)
+                    if (EngineUpdate.BelowLowFrameRate)
                         yield return null;
                 }
             }
         }
+    }
+
+    
+    private void Update()
+    {
+        mousePosition = Input.mousePosition;
+        dt = Time.deltaTime;
+    }
+    
+
+    static void UpdateFunc(GPUInstancingElement obj)
+    {
+        var dir = (new Vector3(mousePosition.x, obj.Position.y, obj.Position.z) - obj.Position);
+        
+        obj.Position += Vector3.ClampMagnitude(dir,  Mathf.Max(Mathf.Abs(obj.GetHashCode())%1000 / 100f, 1) ) * dt;
     }
 
     private void OnDrawGizmosSelected()

@@ -9,28 +9,27 @@ public interface IEnable
     bool Enable {get;}
 }
 
-public interface IUpdate : IEnable, IIndexed
+public interface IUpdate 
 {
     public void MyUpdate();
 }
 
-public interface ILateUpdate : IEnable, IIndexed
+public interface ILateUpdate 
 {
     public void MyLateUpdate();
-    
 }
 
-public interface IEndUpdate : IEnable, IIndexed
+public interface IEndUpdate
 {
     public void MyEndUpdate();
 }
 
-public interface IDeferredUpdate : IEnable, IIndexed
+public interface IDeferredUpdate : IIndexed
 {
     public void MyDeferredUpdate();
 }
 
-public interface IFixedUpdate : IEnable, IIndexed
+public interface IFixedUpdate
 {
     public void MyFixedUpdate();
 }
@@ -300,7 +299,7 @@ namespace UpdateManager
         
         public void Remove(IDeferredUpdate deferredUpdate)
         {
-            deferredUpdate.AddTo(_updateList);
+            deferredUpdate.RemoveToAtSwapBack(_updateList);
         }
 
         public void Clear()
@@ -312,12 +311,11 @@ namespace UpdateManager
         {
             if(_updateList.Count==0)
                 return;
-            
-            foreach (var updateDeferred in _updateList)
-            {
-                if(updateDeferred.Enable)
-                    updateDeferred.MyDeferredUpdate();
 
+            for (int i = _updateList.Count - 1; i >= 0; i--)
+            {
+                _updateList.GetNext().MyDeferredUpdate();
+                
                 if (gmFPSTrehold)
                 {
                     break;

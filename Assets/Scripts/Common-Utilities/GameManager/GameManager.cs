@@ -4,11 +4,10 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.Events;
-using UnityEngine.Serialization;
 using UpdateManager;
 
 [DefaultExecutionOrder(-1)]
-public partial class GameManager : MonoBehaviour, ISuperUpdateManager, IFPSCounter
+public partial class GameManager : MonoBehaviour, ISuperUpdateManager
 {
     public static GameManager instance { get; private set; }
 
@@ -111,33 +110,7 @@ public partial class GameManager : MonoBehaviour, ISuperUpdateManager, IFPSCount
     private UnityEvent onDestroy = new UnityEvent();
     
     #endregion
-
     
-    #region FrameRate threshold
-    
-    bool IFPSCounter.BelowUltraFrameRate => framesPerSecond?.BelowUltraFrameRate ?? false;
-
-    bool IFPSCounter.BelowHightFrameRate => framesPerSecond?.BelowHightFrameRate ?? false;
-
-    bool IFPSCounter.BelowMediumFrameRate => framesPerSecond?.BelowMediumFrameRate ?? false;
-
-    bool IFPSCounter.BelowLowFrameRate => framesPerSecond?.BelowLowFrameRate ?? false;
-
-    bool IFPSCounter.BelowVeryLowFrameRate => framesPerSecond?.BelowVeryLowFrameRate ?? false;
-
-    bool IFPSCounter.BelowWatchDogFrameRate => framesPerSecond?.BelowWatchDogFrameRate ?? false;
-    
-    public static bool BelowUltraFrameRate => ((IFPSCounter)instance)?.BelowUltraFrameRate ?? false;
-    public static bool BelowHightFrameRate => ((IFPSCounter)instance)?.BelowHightFrameRate ?? false;
-    public static bool BelowMediumFrameRate => ((IFPSCounter)instance)?.BelowMediumFrameRate ?? false;
-    public static bool BelowLowFrameRate => ((IFPSCounter)instance)?.BelowLowFrameRate ?? false;
-    public static bool BelowVeryLowFrameRate => ((IFPSCounter)instance)?.BelowVeryLowFrameRate ?? false;
-    public static bool BelowWatchDogFrameRate => ((IFPSCounter)instance)?.BelowWatchDogFrameRate ?? false;
-    
-    [SerializeReference]
-    private FPSCounter framesPerSecond;
-    
-    #endregion
 
     [SerializeField]
     private GmFPSTrehold deferredUpdateTrehold;
@@ -208,7 +181,7 @@ public partial class GameManager : MonoBehaviour, ISuperUpdateManager, IFPSCount
         onFixedUpdate.AddListener(()=> OnFixedUpdateEvnt?.Invoke());
         onDestroy.AddListener(()=> OnDestroyEvnt?.Invoke());
         
-        framesPerSecond = new(this);
+
         
         _fsmGameManager.gamePlay.Init(GamePlayManager);
         
@@ -231,16 +204,6 @@ public partial class GameManager : MonoBehaviour, ISuperUpdateManager, IFPSCount
 
             EndUpdate();
         }
-    }
-
-    private void OnEnable()
-    {
-        framesPerSecond.Resume();
-    }
-
-    private void OnDisable()
-    {
-        framesPerSecond.Stop();
     }
 
     private void Start()
@@ -282,13 +245,11 @@ public partial class GameManager : MonoBehaviour, ISuperUpdateManager, IFPSCount
     {
         GUI.Label(new Rect (25, 25, 500, 25), _fsmGameManager.Current.GetType().Name);
         
-        framesPerSecond.OnGui(new Rect (25, 50, 500, 50));
+        EngineUpdate.OnGuiFPS(new Rect (25, 50, 500, 50));
     }
 
     private void OnDestroy()
     {
-        framesPerSecond.Destroy();
-        
         onDestroy.Invoke();
         
         _fsmGameManager.Destroy();
@@ -306,11 +267,3 @@ public partial class GameManager : MonoBehaviour, ISuperUpdateManager, IFPSCount
 }
 
 
-[System.Serializable]
-public struct GmFPSTrehold
-{
-    [FormerlySerializedAs("_trehold")]
-    public FPSCounter.FPSTrehold trehold;
-
-    public static implicit operator bool(GmFPSTrehold gmFPSTrehold) => gmFPSTrehold.trehold.IsBelow(GameManager.instance);
-}

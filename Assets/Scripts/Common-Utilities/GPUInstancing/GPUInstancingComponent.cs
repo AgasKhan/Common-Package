@@ -115,21 +115,30 @@ namespace GPUInstancing
             enabled = false;
         }
 
-        public IGPUInstancingElement GetGPUInstancingElement()
+        public IGPUInstancingElement GetGPUInstancingElement(System.Action<GPUInstancingElement> updateFunc = null)
         {
-            return GetGPUInstancingElement(transform);
+            return GetGPUInstancingElement(transform, updateFunc);
         }
         
-        public IGPUInstancingElement GetGPUInstancingElement(Transform transform)
+        public IGPUInstancingElement GetGPUInstancingElement(Transform transform, System.Action<GPUInstancingElement> updateFunc = null)
         {
-            return GetGPUInstancingElement(transform.position, transform.rotation, transform.lossyScale);
+            return GetGPUInstancingElement(transform.position, transform.rotation, transform.lossyScale, updateFunc);
         }
         
-        public IGPUInstancingElement GetGPUInstancingElement(Vector3 position, Quaternion rotation, Vector3 lossyscale)
+        public IGPUInstancingElement GetGPUInstancingElement(Vector3 position, Quaternion rotation, Vector3 lossyscale, System.Action<GPUInstancingElement> updateFunc = null)
         {
-            return new GPUInstancingElement(this)
+            if (updateFunc == null)
+                return new GPUInstancingElement(this)
+                {
+                    Index = 0,
+                    Position = position,
+                    Rotation = rotation,
+                    LossyScale = lossyscale
+                };
+
+            return new GPUInstancingElement(this, updateFunc)
             {
-                Index = Index,
+                Index = 0,
                 Position = position,
                 Rotation = rotation,
                 LossyScale = lossyscale
@@ -175,19 +184,31 @@ namespace GPUInstancing
         [field:SerializeField]
         public bool ReceiveShadows { get; set; }
 
-        public IGPUInstancingElement GetGPUInstancingElement()
+        public IGPUInstancingElement GetGPUInstancingElement(System.Action<GPUInstancingElement> updateFunc = null)
         {
-            return new GPUInstancingElement(this);
+            if (updateFunc == null)
+                return new GPUInstancingElement(this);
+
+            return new GPUInstancingElement(this, updateFunc);
         }
         
-        public IGPUInstancingElement GetGPUInstancingElement(Transform transform)
+        public IGPUInstancingElement GetGPUInstancingElement(Transform transform, System.Action<GPUInstancingElement> updateFunc = null)
         {
             return GetGPUInstancingElement(transform.position, transform.rotation, transform.lossyScale);
         }
         
-        public IGPUInstancingElement GetGPUInstancingElement(Vector3 position, Quaternion rotation, Vector3 lossyscale)
+        public IGPUInstancingElement GetGPUInstancingElement(Vector3 position, Quaternion rotation, Vector3 lossyscale, System.Action<GPUInstancingElement> updateFunc = null)
         {
-            return new GPUInstancingElement(this)
+            if (updateFunc == null)
+                return new GPUInstancingElement(this)
+                {
+                    Index = 0,
+                    Position = position,
+                    Rotation = rotation,
+                    LossyScale = lossyscale
+                };
+
+            return new GPUInstancingElement(this, updateFunc)
             {
                 Index = 0,
                 Position = position,
@@ -272,7 +293,7 @@ namespace GPUInstancing
             get
             {
                 _update(this);
-                return new() { objectToWorld =Matrix4x4.TRS(Position, Rotation, LossyScale)};       
+                return new() { objectToWorld =Matrix4x4.TRS(transform.position, transform.rotation, transform.lossyScale)};       
             }
         }
         
@@ -280,6 +301,13 @@ namespace GPUInstancing
         {
             _gpuInstancingData = gpuInstancingData;
             _update = VoidAction;
+        }
+        
+        public GPUInstancingElement(IGPUInstancingData gpuInstancingData,  System.Action<GPUInstancingElement> updateFunc )
+        {
+            _gpuInstancingData = gpuInstancingData;
+            _update = ExecuteAction;
+            _onParallelUpdate = updateFunc;
         }
         
         static void VoidAction(GPUInstancingElement gpuInstancingElement)

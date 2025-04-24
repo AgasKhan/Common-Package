@@ -16,6 +16,8 @@ namespace GPUInstancing
     {
         abstract class RenderData : IDisposable
         {
+            protected static readonly ParallelOptions parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = 64 };
+            
             protected const int jobTrehold = 500;
 
             protected RenderParams[] rp;
@@ -180,7 +182,7 @@ namespace GPUInstancing
                         {
                             InstanceData* ptr = (InstanceData*)instanceDatas.GetUnsafePtr();
                     
-                            task = Parallel.For(0, gpuInstancingComponents.Count, (i, state) =>
+                            task = Parallel.For(0, gpuInstancingComponents.Count, parallelOptions, (i, state) =>
                             {
                                 ptr[i] = gpuInstancingComponents[i].InstanceData;
                             });
@@ -234,7 +236,7 @@ namespace GPUInstancing
                     {
                         InstanceData* ptr = (InstanceData*)instanceDatas.GetUnsafePtr();
                     
-                        task = Parallel.For(0, gpuInstancingComponents.Count, (i, state) =>
+                        task = Parallel.For(0, gpuInstancingComponents.Count, parallelOptions,  (i, state) =>
                         {
                             ptr[i] = gpuInstancingComponents[i].InstanceData;
                         });
@@ -340,11 +342,9 @@ namespace GPUInstancing
         
         public static GPUInstancingManager Instance { get; private set; }
 
-        private Dictionary<int, RenderData> _renderDatas = new();
+        private readonly Dictionary<int, RenderData> _renderDatas = new();
 
         public bool Enable => true;
-        
-        public int Index { get; set; }
 
         public void AddFixedElement<TElement>(int hash, TElement element)  where TElement : IGPUInstancingElement
         {
@@ -407,19 +407,7 @@ namespace GPUInstancing
             UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnDestroy;
             EngineUpdate.AddPostUpdate(Instance);
             EngineUpdate.AddPreLateUpdate(Instance);
-            
-#if UNITY_EDITOR
-            UnityEditor.EditorApplication.playModeStateChanged -= OnPlayModeState;
-            UnityEditor.EditorApplication.playModeStateChanged += OnPlayModeState;
-            
-            void OnPlayModeState(UnityEditor.PlayModeStateChange state) 
-            {
-                if (state == UnityEditor.PlayModeStateChange.ExitingPlayMode) 
-                {
-                    Instance.Clear();
-                }
-            }
-#endif
+            EngineUpdate.onQuit += Instance.Clear;
         }
         
         private static void OnDestroy(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
@@ -437,6 +425,8 @@ namespace GPUInstancing
                 keyValue.Value.Dispose();
             }
         }
+
+
     }
 
     [BurstCompile]
@@ -477,24 +467,17 @@ namespace GPUInstancing
     
     public interface IGetGPUInstancingElement
     {
-        public IGPUInstancingElement GetGPUInstancingElement();
+        public IGPUInstancingElement GetGPUInstancingElement(System.Action<GPUInstancingElement> updateFunc = null);
 
-        public IGPUInstancingElement GetGPUInstancingElement(Transform transform);
+        public IGPUInstancingElement GetGPUInstancingElement(Transform transform, System.Action<GPUInstancingElement> updateFunc = null);
 
-        public IGPUInstancingElement GetGPUInstancingElement(Vector3 position, Quaternion rotation, Vector3 lossyscale);
+        public IGPUInstancingElement GetGPUInstancingElement(Vector3 position, Quaternion rotation, Vector3 lossyscale, System.Action<GPUInstancingElement> updateFunc = null);
     }
 
     public interface IGPUInstancingElement : IGPUInstancingData, IIndexed
     {
         public InstanceData InstanceData { get; }
     }
-
-    /*
-    public interface IGPUInstancingElement<out TJobGpu>: IGPUInstancingElement where TJobGpu : struct, IJobGpuInstancing
-    {
-        
-    }
-    */
     
     public interface IGPUInstancingComponent<out TJobGpu> : IGPUInstancingElement  where TJobGpu : struct, IJobGpuInstancing
     {

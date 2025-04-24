@@ -12,10 +12,18 @@ public class RotatingList<T> : RefList<T>
     {
         for (int i = 0; i < Count; i++)
         {
-            var aux = array[Actual];
-            Actual = (Actual + 1) % Count;
-            yield return aux;
+            yield return GetNext();
         }
+    }
+    
+    public ref T GetPrevious()
+    {
+        if (Count == 0)
+            throw new InvalidOperationException("The list is empty");
+        
+        ref T item = ref array[Actual];
+        Actual = --Actual < 0 ? Count-1 : Actual;
+        return ref item;
     }
     
     public ref T GetNext()

@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Unity.Collections;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 public interface IFPSCounter
 {
@@ -99,9 +100,15 @@ public class FPSCounter: IFPSCounter
     
     [SerializeField]
     private int averageTime = 100;
-
-    private long _renderTiming;
-    private long _mainTiming;
+    
+    private long _toInitTiming;
+    
+    private long _toUpdateTiming;
+    
+    private long _toEndUpdate;
+    
+    
+    
     private long _offset;
     
 
@@ -109,19 +116,16 @@ public class FPSCounter: IFPSCounter
 
     private readonly System.Diagnostics.Stopwatch _stopwatch = new ();
 
-    private ISuperUpdateManager updateManager;
-
-    public FPSCounter(ISuperUpdateManager updateManager)
+    public FPSCounter()
     {
-        this.updateManager = updateManager;
-        updateManager.OnUpdateEvnt += Update;
-        updateManager.OnLateUpdateEvnt += LateUpdate;
-        this.updateManager.OnEndUpdateEvnt += EndUpdate;
         _average = new Average<(long main, long render)>(OnAddToCalc, Result);
     }
     
     private int OnAddToCalc((long main, long render) arg1, NativeList<(long main, long render)> list)
     {
+        if (!list.IsCreated)
+            return 0; 
+        
         list.Add(arg1);
 
         long total = 0;
@@ -167,39 +171,40 @@ public class FPSCounter: IFPSCounter
         _stopwatch.Reset();
     }
     
-    private void Update()
+    public void Update()
     {
-        _mainTiming = (long)(Time.deltaTime * 1000) - _renderTiming;
+        _toInitTiming = _stopwatch.ElapsedMilliseconds - (_toUpdateTiming + _toEndUpdate);
         
-        _average.AddToCalc((_mainTiming, _renderTiming));
+        
+        _average.AddToCalc((_toUpdateTiming + _toEndUpdate, _toInitTiming));
         
         var aux = _average.Calc();
 
         AverageUpdateTiming = aux.main;
         AverageRenderTiming = aux.render;
         
-        _offset = AverageRenderTiming;
+        _offset = AverageRenderTiming + (AverageUpdateTiming - _toUpdateTiming);
 
         AverageTiming = AverageRenderTiming + AverageUpdateTiming;
         
         _stopwatch.Restart();
     }
     
-    private void LateUpdate()
+    public void LateUpdate()
     {
-        _mainTiming = _stopwatch.ElapsedMilliseconds;
+        _toUpdateTiming = _stopwatch.ElapsedMilliseconds;
+        
+        _offset -= _toEndUpdate;
     }
     
-    private void EndUpdate()
+    public void EndUpdate()
     {
-        _renderTiming = _stopwatch.ElapsedMilliseconds - _mainTiming;
-
+        _toEndUpdate = _stopwatch.ElapsedMilliseconds - _toUpdateTiming;
         _offset = 0;
     }
 
     public void Destroy()
     {
-        updateManager.OnUpdateEvnt -= Update;
         _stopwatch.Stop();
         _average.Dispose();
     }
@@ -210,8 +215,44 @@ public class FPSCounter: IFPSCounter
     }
 }
 
+[System.Serializable]
+public struct GmFPSTrehold
+{
+    [FormerlySerializedAs("_trehold")]
+    public FPSCounter.FPSTrehold trehold;
+
+    public static implicit operator bool(GmFPSTrehold gmFPSTrehold) => gmFPSTrehold.trehold.IsBelow();
+}
+
 public static class FPScounterExtension
 {
+    public static bool IsBelow(this FPSCounter.FPSTrehold fpsTrehold)
+    {
+        switch (fpsTrehold)
+        {
+            case FPSCounter.FPSTrehold.BelowWatchDogFrameRate:
+                return EngineUpdate.BelowWatchDogFrameRate;
+                
+            case FPSCounter.FPSTrehold.BelowVeryLowFrameRate:
+                return EngineUpdate.BelowVeryLowFrameRate;
+            
+            case FPSCounter.FPSTrehold.BelowLowFrameRate:
+                return EngineUpdate.BelowLowFrameRate;
+            
+            case FPSCounter.FPSTrehold.BelowMediumFrameRate:
+                return EngineUpdate.BelowMediumFrameRate;
+            
+            case FPSCounter.FPSTrehold.BelowHightFrameRate:
+                return EngineUpdate.BelowHightFrameRate;
+            
+            case FPSCounter.FPSTrehold.BelowUltraFrameRate:
+                return EngineUpdate.BelowUltraFrameRate;
+            
+            default:
+                throw new ArgumentOutOfRangeException(nameof(fpsTrehold), fpsTrehold, null);
+        }
+    }
+    
     public static bool IsBelow(this FPSCounter.FPSTrehold trehold, IFPSCounter fpsCounter)
     {
         return fpsCounter.IsBelow(trehold);
