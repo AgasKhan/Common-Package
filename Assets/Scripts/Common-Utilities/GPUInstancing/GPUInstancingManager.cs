@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Jobs;
 using UnityEngine.Rendering;
@@ -151,15 +153,46 @@ namespace GPUInstancing
 
             }
         }
-        
-        class RenderDatasFixedElement<TElement> : RenderData<TElement> where TElement : IGPUInstancingElement
+
+        abstract class RenderDatasParallelElement<TElement> : RenderData<TElement> where TElement : IGPUInstancingElement
         {
-            protected override bool AutomaticInstanceDatas => false;
+            private Task<ParallelLoopResult> _task;
 
-            private bool isChanged;
+            private unsafe InstanceData* _ptr;
+
+            protected void RunParellelTask()
+            {
+                _task = Task.Run(ParallelFor);
+            }
             
-            private ParallelLoopResult task;
+            protected void BlockThreatUntilTaskFinish()
+            {
+                if (instanceDatas.Length < jobTrehold) 
+                    return;
 
+                while (!_task.IsCompleted || !_task.Result.IsCompleted)
+                {
+                }
+            }
+
+            private unsafe ParallelLoopResult ParallelFor()
+            {
+                _ptr = (InstanceData*)instanceDatas.GetUnsafePtr();
+                return Parallel.For(0, gpuInstancingComponents.Count, parallelOptions, For);
+            }
+
+            private unsafe void For(int i)
+            {
+                _ptr[i] = gpuInstancingComponents[i].InstanceData;
+            }
+        }
+        
+        class RenderDatasFixedElement<TElement> : RenderDatasParallelElement<TElement> where TElement : IGPUInstancingElement
+        {
+            private bool _isChanged;
+
+            protected override bool AutomaticInstanceDatas => false;
+            
             protected override void InternalUpdate()
             {
                 if (gpuInstancingComponents.Count != instanceDatas.Length)
@@ -178,36 +211,20 @@ namespace GPUInstancing
                     }
                     else
                     {
-                        unsafe
-                        {
-                            InstanceData* ptr = (InstanceData*)instanceDatas.GetUnsafePtr();
-                    
-                            task = Parallel.For(0, gpuInstancingComponents.Count, parallelOptions, (i, state) =>
-                            {
-                                ptr[i] = gpuInstancingComponents[i].InstanceData;
-                            });
-                        }
-
-                        isChanged = true;
+                        RunParellelTask();
                     }
+                    
+                    _isChanged = true;
                 }
             }
 
             protected override void InternalLateUpdate()
             {
-                if(isChanged)
+                if(_isChanged)
                 {
-                    if (instanceDatas.Length < jobTrehold)
-                    {
-                    }
-                    else
-                    {
-                        while (!task.IsCompleted)
-                        {
-                        }
-                    }
+                    BlockThreatUntilTaskFinish();
 
-                    isChanged = false;
+                    _isChanged = false;
                 }
 
                 for (int i = 0; i < rp.Length; i++)
@@ -217,10 +234,8 @@ namespace GPUInstancing
             }
         }
         
-        class RenderDatasMoveElement<TElement> : RenderData<TElement>  where TElement : IGPUInstancingElement
+        class RenderDatasMoveElement<TElement> : RenderDatasParallelElement<TElement>  where TElement : IGPUInstancingElement
         {
-            private ParallelLoopResult task;
-            
             protected override void InternalUpdate()
             {
                 if (gpuInstancingComponents.Count < jobTrehold)
@@ -232,29 +247,13 @@ namespace GPUInstancing
                 }
                 else
                 {
-                    unsafe
-                    {
-                        InstanceData* ptr = (InstanceData*)instanceDatas.GetUnsafePtr();
-                    
-                        task = Parallel.For(0, gpuInstancingComponents.Count, parallelOptions,  (i, state) =>
-                        {
-                            ptr[i] = gpuInstancingComponents[i].InstanceData;
-                        });
-                    }
+                    RunParellelTask();
                 }
             }
 
             protected override void InternalLateUpdate()
             {
-                if (instanceDatas.Length < jobTrehold)
-                {
-                }
-                else
-                {
-                    while (!task.IsCompleted)
-                    {
-                    }
-                }
+                BlockThreatUntilTaskFinish();
 
                 for (int i = 0; i < rp.Length; i++)
                 {
@@ -336,7 +335,8 @@ namespace GPUInstancing
                 
                 job.Dispose();
                 
-                transformAccessArray.Dispose();
+                if(transformAccessArray.isCreated)
+                    transformAccessArray.Dispose();
             }
         }
         
@@ -344,7 +344,7 @@ namespace GPUInstancing
 
         private readonly Dictionary<int, RenderData> _renderDatas = new();
 
-        public bool Enable => true;
+        public bool Enable { get; set; } = true;
 
         public void AddFixedElement<TElement>(int hash, TElement element)  where TElement : IGPUInstancingElement
         {
@@ -378,35 +378,37 @@ namespace GPUInstancing
         
         public void Remove(int hash, IGPUInstancingElement element)
         {
-            if(!_renderDatas.ContainsKey(hash))
+            if(!_renderDatas.TryGetValue(hash, out var data))
                 return;
             
-            _renderDatas[hash].Remove(element);
+            data.Remove(element);
         }
         
         void IUpdate.MyUpdate()
         {
-            foreach (var keyValue in _renderDatas)
-            {
-                keyValue.Value.Update();
-            }
+            if(Enable)
+                foreach (var keyValue in _renderDatas)
+                {
+                    keyValue.Value.Update();
+                }
         }
 
         void ILateUpdate.MyLateUpdate()
         {
-            foreach (var keyValue in _renderDatas)
-            {
-                keyValue.Value.LateUpdate();
-            }
+            if(Enable)
+                foreach (var keyValue in _renderDatas)
+                {
+                    keyValue.Value.LateUpdate();
+                }
         }
         
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        public static void Init()
+        private static void Init()
         {
             Instance = new GPUInstancingManager();
             UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnDestroy;
             EngineUpdate.AddPostUpdate(Instance);
-            EngineUpdate.AddPreLateUpdate(Instance);
+            EngineUpdate.AddPostLateUpdate(Instance);
             EngineUpdate.onQuit += Instance.Clear;
         }
         
@@ -418,7 +420,7 @@ namespace GPUInstancing
             Instance.Clear();
         }
 
-        void Clear()
+        private void Clear()
         {
             foreach (var keyValue in _renderDatas)
             {

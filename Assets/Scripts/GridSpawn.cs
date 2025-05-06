@@ -27,7 +27,6 @@ public class GridSpawn : MonoBehaviour
     [SerializeField]
     private Vector3 count;
     
-    
     static Vector3 mousePosition;
 
     static float dt;
@@ -43,6 +42,8 @@ public class GridSpawn : MonoBehaviour
         
         var manager = GPUInstancingManager.Instance;
 
+        manager.Enable = false;
+
         var hash = gpuInstancingComponent.name.GetHashCode();
         
         count.x = gridSize.x * gridSize.y * gridSize.z;
@@ -53,12 +54,12 @@ public class GridSpawn : MonoBehaviour
             {
                 for (int x = 0; x < gridSize.x; x++)
                 {
-
+                    
                     var element = gpuInstancingComponent.GetGPUInstancingElement(
                         offset + new Vector3(spacing.x * x, spacing.y * y, spacing.z * z), Quaternion.identity,
                         Vector3.one, UpdateFunc);
                     
-                    manager.AddMoveElement(hash,element);
+                    manager.AddFixedElement(hash,element);
                     
                     
                     //Instantiate(prefab, offset + new Vector3(spacing.x * x, spacing.y * y, spacing.z * z), Quaternion.identity);
@@ -73,7 +74,11 @@ public class GridSpawn : MonoBehaviour
                         yield return null;
                 }
             }
+            
+            this.LogAndSelect("Z completed");
         }
+
+        manager.Enable = true;
     }
 
     
@@ -82,7 +87,6 @@ public class GridSpawn : MonoBehaviour
         mousePosition = Input.mousePosition;
         dt = Time.deltaTime;
     }
-    
 
     static void UpdateFunc(GPUInstancingElement obj)
     {

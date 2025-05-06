@@ -145,6 +145,9 @@ public class FPSCounter: IFPSCounter
 
     private static (long main, long render) Result(NativeList<(long main, long render)> list)
     {
+        if (!list.IsCreated)
+            return (0, 0);
+        
         (long main, long render) calculate = new ();
 
         int total = list.Length != 0 ? list.Length : 1;

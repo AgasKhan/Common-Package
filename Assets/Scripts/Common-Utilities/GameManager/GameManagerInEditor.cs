@@ -38,6 +38,7 @@ public partial class  GameManager
         return newGm;
     }
     
+    [UnityEditor.InitializeOnLoadMethod]
     [UnityEditor.Callbacks.DidReloadScripts]
     static void EditorReloadScript()
     {

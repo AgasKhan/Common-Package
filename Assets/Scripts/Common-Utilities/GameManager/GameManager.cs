@@ -244,8 +244,6 @@ public partial class GameManager : MonoBehaviour, ISuperUpdateManager
     private void OnGUI()
     {
         GUI.Label(new Rect (25, 25, 500, 25), _fsmGameManager.Current.GetType().Name);
-        
-        EngineUpdate.OnGuiFPS(new Rect (25, 50, 500, 50));
     }
 
     private void OnDestroy()

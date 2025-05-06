@@ -1,7 +1,3 @@
-//Comentar para desactivar el testeo
-#define TESTING
-//////////////////////////////////////////////////////////
-
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -13,47 +9,91 @@ using Object = UnityEngine.Object;
 using System.Text;
 using UnityEditor;
 
-[UnityEditor.InitializeOnLoad]
+[InitializeOnLoad]
 #endif
 public static class DebugPrint
 {
     #if UNITY_EDITOR
-    
+        struct PrintF
+        {
+            private const char newLine = '\n';
+            
+            private StringBuilder pantalla;
+
+            private System.Action<object> print;
+            
+            public bool LenghtChk => pantalla.Length > 0;
+
+            public PrintF(Action<object> print) : this()
+            {
+                pantalla = new StringBuilder();
+                this.print = print;
+            }
+
+            public void Add(string palabra)
+            {
+                if (pantalla.Length != 0)
+                {
+                    pantalla.Append(newLine);
+                    pantalla.Append(palabra);
+                }
+                else
+                    pantalla.Append(palabra);
+            }
+            
+            public void Print(ref string str)
+            {        
+                if(!LenghtChk)
+                    return;
+                
+                str += pantalla;
+                Clear();
+            }
+
+            public void Print()
+            {
+                if(!LenghtChk)
+                    return;
+                
+                print.Invoke(pantalla);
+                Clear();
+            }
+
+            public void Clear()
+            {
+                pantalla.Clear();
+            }
+        }
+        
+        private static Dictionary<int, (DateTime date, string message)> highlightEndTimes = new ();
+        private static HashSet<Object> toSelect = new();
+        
+        static PrintF debug = new(Debug.Log);
+        static PrintF warning = new(Debug.LogWarning);
+        static PrintF error = new(Debug.LogError);
+        
+        private static bool Chk => debug.LenghtChk || error.LenghtChk || warning.LenghtChk;
+        
         static DebugPrint()
         {
-            UnityEditor.EditorApplication.update -= UpdateHighlightTimes;
-            UnityEditor.EditorApplication.update += UpdateHighlightTimes;
+            EditorApplication.update -= UpdateHighlightTimes;
+            EditorApplication.update += UpdateHighlightTimes;
             
             EditorApplication.hierarchyWindowItemOnGUI -= HierarchyHighlight_OnGUI;
             EditorApplication.hierarchyWindowItemOnGUI += HierarchyHighlight_OnGUI;
         }
-        
-        private static Dictionary<int, (System.DateTime date, string message)> highlightEndTimes = new ();
-        private static HashSet<Object> toSelect = new();
-        
-        static PrintF debug = new PrintF(Debug.Log);
-        static PrintF warning = new PrintF(Debug.LogWarning);
-        static PrintF error = new PrintF(Debug.LogError);
-        
-        private static bool Chk => debug.LenghtChk || error.LenghtChk || warning.LenghtChk;
 
-        static event UnityEditor.EditorApplication.CallbackFunction ExecuteInNextFrame
+        static event EditorApplication.CallbackFunction ExecuteInNextFrame
         {
-            add
-            {
-                UnityEditor.EditorApplication.delayCall += value;
-            }
-            remove
-            {
-                UnityEditor.EditorApplication.delayCall -= value;
-            }
+            add => EditorApplication.delayCall += value;
+            remove => EditorApplication.delayCall -= value;
         }
         
         private static void HierarchyHighlight_OnGUI(int instanceID, Rect selectionRect)
         {
             if (Event.current.type != EventType.Repaint) return;
                 
-            if (DebugPrint.ShouldHighlight(instanceID, out string message))
+            if (ShouldHighlight(instanceID, out string message))
             {
                 Color BKCol = Color.green;
                 Color TextCol = Color.red;
@@ -81,11 +121,11 @@ public static class DebugPrint
         {
             var arraySelected = toSelect.ToArray();
 
-            UnityEditor.Selection.objects = arraySelected;
+            Selection.objects = arraySelected;
 
             foreach (var selected in arraySelected)
             {
-                UnityEditor.EditorGUIUtility.PingObject(selected);
+                EditorGUIUtility.PingObject(selected);
             }
             
             
@@ -94,7 +134,7 @@ public static class DebugPrint
         
         private static void UpdateHighlightTimes()
         {
-            System.DateTime now = System.DateTime.UtcNow;
+            DateTime now = DateTime.UtcNow;
 
             List<int> expiredIDs = new();
             foreach (var kvp in highlightEndTimes)
@@ -114,7 +154,7 @@ public static class DebugPrint
             if (component != null)
             {
                 int instanceID = component.gameObject.GetInstanceID();
-                highlightEndTimes[instanceID] = (System.DateTime.UtcNow.AddSeconds(duration), obj.ToString());  // Almacena el ID con 100 frames de duración
+                highlightEndTimes[instanceID] = (DateTime.UtcNow.AddSeconds(duration), obj.ToString());  // Almacena el ID con 100 frames de duración
                 
                 Select(component.gameObject);
             }
@@ -125,10 +165,10 @@ public static class DebugPrint
             if (component != null)
             {
                 int instanceID = component.gameObject.GetInstanceID();
-                highlightEndTimes[instanceID] = (System.DateTime.UtcNow.AddSeconds(duration), obj.ToString());  // Almacena el ID con 100 frames de duración
+                highlightEndTimes[instanceID] = (DateTime.UtcNow.AddSeconds(duration), obj.ToString());  // Almacena el ID con 100 frames de duración
                 
                 Select(component.gameObject);
-                UnityEditor.EditorUtility.OpenPropertyEditor(component.gameObject);
+                EditorUtility.OpenPropertyEditor(component.gameObject);
             }
         }
 
@@ -151,13 +191,12 @@ public static class DebugPrint
         }
     
     #endif
-    
 
-    #region No Editor
+    #region Runtime
 
         static string FormatComponent(Component component, object t)
         {
-            #if TESTING
+            #if DEBUG
                 return $"{t}\n\t-{component}: {component?.GetInstanceID()}";
             #else
                 return string.Empty;
@@ -172,7 +211,7 @@ public static class DebugPrint
         /// <param name="duration"></param>
         public static void Error(this Component component, object obj)
         {
-            #if TESTING
+            #if DEBUG
                 Debug.LogError(FormatComponent(component, obj), component);
             #endif        
         }
@@ -185,7 +224,7 @@ public static class DebugPrint
         /// <param name="duration"></param>
         public static void Warning(this Component component, object obj)
         {
-            #if TESTING
+            #if DEBUG
                 Debug.LogWarning(FormatComponent(component, obj), component);
             #endif     
         }
@@ -198,7 +237,7 @@ public static class DebugPrint
         /// <param name="duration"></param>
         public static void Log(object obj, Component component = null)
         {
-            #if TESTING
+            #if DEBUG
                 Debug.Log(FormatComponent(component, obj), component);
             #endif     
         }
@@ -211,7 +250,7 @@ public static class DebugPrint
         /// <param name="duration"></param>
         public static void Log(this Component component, object obj)
         {
-            #if TESTING
+            #if DEBUG
                 Log(obj, component);
             #endif
         }
@@ -225,7 +264,7 @@ public static class DebugPrint
         /// <param name="duration"></param>
         public static void LogAndSelect(object obj, Component component = null, float duration = 2f)
         {
-            #if TESTING
+            #if DEBUG
                 #if UNITY_EDITOR
                     AndSelect(obj, component, duration);
                 #endif
@@ -255,7 +294,7 @@ public static class DebugPrint
         /// <param name="duration"></param>
         public static void LogAndOpen(object obj, Component component = null, float duration = 2f)
         {
-            #if TESTING
+            #if DEBUG
             
                 #if UNITY_EDITOR
                     AndOpen(obj, component, duration);
@@ -265,6 +304,7 @@ public static class DebugPrint
             
             #endif
         }
+        
         
         /// <summary>
         /// Realiza el Log y vincula el objeto al mensaje de consola ademas selecciona y abre el objeto
@@ -278,8 +318,6 @@ public static class DebugPrint
             LogAndOpen(FormatComponent(component, obj), component, duration);
         }
         
-        
-        
         /// <summary>
         /// Logs consecutivos, que se acumulan por frame
         /// </summary>
@@ -287,7 +325,7 @@ public static class DebugPrint
         /// <param name="t"></param>
         public static void ConsecutiveLog(object t)
         {
-            #if TESTING
+            #if DEBUG
                 #if UNITY_EDITOR
                     if (!Chk)
                         ExecuteInNextFrame += PrintCombinado;
@@ -318,7 +356,7 @@ public static class DebugPrint
         /// <param name="t"></param>
         public static void ConsecutiveWarning(object t)
         {        
-            #if TESTING
+            #if DEBUG
                 #if UNITY_EDITOR
                     if (!Chk)
                         ExecuteInNextFrame += PrintCombinado;
@@ -348,12 +386,12 @@ public static class DebugPrint
         /// <param name="t"></param>
         public static void ConsecutiveError(object t)
         {
-            #if TESTING
+            #if DEBUG
                 #if UNITY_EDITOR
                     if (!Chk)
                         ExecuteInNextFrame += PrintCombinado;
                     
-                    error.Add("<color=red>" + t.ToString() + "</color>");
+                    error.Add($"<color=red>{t}</color>");
                 #else
                     Debug.LogError(t);
                 #endif
@@ -369,54 +407,5 @@ public static class DebugPrint
         {
             ConsecutiveError(FormatComponent(component, t));
         }
-
     #endregion
 }
-
-#if UNITY_EDITOR
-    struct PrintF
-    {
-        private StringBuilder pantalla;
-
-        private System.Action<object> print;
-        
-        public bool LenghtChk => pantalla.Length > 0 ? true : false;
-
-        public PrintF(Action<object> print) : this()
-        {
-            pantalla = new StringBuilder();
-            this.print = print;
-        }
-
-        public void Add(string palabra)
-        {
-            if (pantalla.Length!=0)
-                pantalla.Append("\n" + palabra);
-            else
-                pantalla.Append(palabra);
-        }
-        
-        public void Print(ref string str)
-        {        
-            if(!LenghtChk)
-                return;
-            
-            str += pantalla;
-            Clear();
-        }
-
-        public void Print()
-        {
-            if(!LenghtChk)
-                return;
-            
-            print.Invoke(pantalla);
-            Clear();
-        }
-
-        public void Clear()
-        {
-            pantalla.Clear();
-        }
-    }
-#endif

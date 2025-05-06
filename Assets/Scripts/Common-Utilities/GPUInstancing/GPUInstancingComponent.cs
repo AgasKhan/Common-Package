@@ -44,8 +44,7 @@ namespace GPUInstancing
 
         [SerializeField]
         private MeshRenderer _meshRenderer;
-
-        [SerializeField]
+        
         private GPUInstancingManager manager;
         
         public int Index { get; set; } = -1;
@@ -148,14 +147,13 @@ namespace GPUInstancing
         private void Awake()
         {
             hash = name.GetHashCode();
-            
-            if(manager==null)
-                manager = GPUInstancingManager.Instance;
+
+            manager = GPUInstancingManager.Instance;
         }
-        
+
         private void OnEnable()
         {
-            manager.AddComponentElement<GPUInstancingComponent, JobComponent>(hash,this);
+            manager.AddComponentElement<GPUInstancingComponent, JobComponent>(hash,this, true);
             _meshRenderer.enabled = false;
         }
 
@@ -164,6 +162,7 @@ namespace GPUInstancing
             manager.Remove(hash,this);
             _meshRenderer.enabled = true;
         }
+        
     }
 
     [Serializable]

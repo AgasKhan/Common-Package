@@ -1,0 +1,54 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 384c0d7b99bda854b82e117a9e9fac63, type: 3}
+  m_Name: DependencyInjectionData
+  m_EditorClassIdentifier: 
+  Prueba: 79
+  data:
+    INT32:
+      elements:
+      - indexInArray: 0
+        name: PlayerLife5
+        scenesAndValues:
+        - sceneAsset: {fileID: 0}
+          value: 79
+        - sceneAsset: {fileID: 102900000, guid: 2cda990e2423bbf4892e6590ba056729, type: 3}
+          value: 254
+      - indexInArray: 1
+        name: PlayerLife3
+        scenesAndValues:
+        - sceneAsset: {fileID: 0}
+          value: 63
+    STRING:
+      elements:
+      - indexInArray: 0
+        name: PlayerName
+        scenesAndValues:
+        - sceneAsset: {fileID: 0}
+          value: casiiita
+    VECTOR3:
+      elements: []
+    MONOBEHAVIOUR:
+      elements:
+      - indexInArray: 0
+        name: Mono
+        scenesAndValues:
+        - sceneAsset: {fileID: 0}
+          value: {fileID: 1077885866686065938, guid: 9ca923eebcec45541a984ec165c46dab, type: 3}
+        - sceneAsset: {fileID: 0}
+          value: {fileID: 1077885866686065938, guid: 9ca923eebcec45541a984ec165c46dab, type: 3}
+    VECTOR2:
+      elements:
+      - indexInArray: 0
+        name: asf
+        scenesAndValues: []
+  timeToReload: 5

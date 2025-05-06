@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Text;
@@ -61,6 +62,28 @@ public static class EngineUpdate
                loopList?.Invoke();
           }
      }
+
+     class OnGuiHandler : MonoBehaviour
+     {
+          public System.Action onGUI;
+          
+          public System.Action onDrawGizmos;
+          
+          private void OnGUI()
+          {
+               onGUI.Invoke();
+          }
+          
+          private void OnDrawGizmos()
+          {
+               onDrawGizmos.Invoke();
+          }
+
+          private void Awake()
+          {
+               DontDestroyOnLoad(gameObject);
+          }
+     }
      
      public static bool BelowUltraFrameRate => framesPerSecond.BelowUltraFrameRate;
      public static bool BelowHightFrameRate => framesPerSecond.BelowHightFrameRate;
@@ -70,6 +93,8 @@ public static class EngineUpdate
      public static bool BelowWatchDogFrameRate => framesPerSecond.BelowWatchDogFrameRate;
      
      public static event System.Action onQuit;
+     public static event System.Action onGUI;
+     public static event System.Action onDrawGizmos;
      
      #if UNITY_EDITOR
      public static event System.Action onQuitInEditor;
@@ -96,7 +121,7 @@ public static class EngineUpdate
      private static FPSCounter framesPerSecond;
 
      [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterAssembliesLoaded)]
-     static void Init()
+     static void InitAfterAssemblies()
      {
           StringBuilder stringBuilder = new StringBuilder();
           
@@ -191,34 +216,62 @@ public static class EngineUpdate
 #endif
      }
 
+     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+     static void InitAfterLoad()
+     {
+          var go = new GameObject("OnGuiHandlerGO");
+          var guiHandler = go.AddComponent<OnGuiHandler>();
+          guiHandler.onGUI = OnGUI;
+          guiHandler.onDrawGizmos = OnDrawGizmos;
+     }
+
+     private static void OnDrawGizmos()
+     {
+          onDrawGizmos?.Invoke();
+     }
+
+     private static void OnGUI()
+     {
+          framesPerSecond.OnGui(new Rect (25, 50, 500, 50));
+          onGUI?.Invoke();
+     }
+
      private static void ApplicationOnquitting()
      {
           onQuit?.Invoke();
      }
 
-     public static void OnGuiFPS(Rect rect)
-     {
-          framesPerSecond.OnGui(rect);
-     }
-
      #region Update
-
+     public static void AddPreUpdate(System.Action update)
+     {
+          inPreUpdate.AddLoop(update);
+     }
      public static void AddPreUpdate(IUpdate update)
      {
           inPreUpdate.AddLoop(update.MyUpdate);
      }
-
+     public static void RemovePreUpdate(System.Action update)
+     {
+          inPreUpdate.RemoveLoop(update);
+     }
      public static void RemovePreUpdate(IUpdate update)
      {
           inPreUpdate.RemoveLoop(update.MyUpdate);
      }
      
      
+     public static void AddPostUpdate(System.Action update)
+     {
+          inPostUpdate.AddLoop(update);
+     }
      public static void AddPostUpdate(IUpdate update)
      {
           inPostUpdate.AddLoop(update.MyUpdate);
      }
-
+     public static void RemovePostUpdate(System.Action update)
+     {
+          inPostUpdate.RemoveLoop(update);
+     }
      public static void RemovePostUpdate(IUpdate update)
      {
           inPostUpdate.RemoveLoop(update.MyUpdate);
@@ -227,21 +280,36 @@ public static class EngineUpdate
      #endregion
 
      #region FixedUpdate
+     public static void AddPreFixedUpdate(System.Action update)
+     {
+          inPreFixedUpdate.AddLoop(update);
+     }
      public static void AddPreFixedUpdate(IFixedUpdate update)
      {
           inPreFixedUpdate.AddLoop(update.MyFixedUpdate);
      }
-     
+     public static void RemovePreFixedUpdate(System.Action update)
+     {
+          inPreFixedUpdate.RemoveLoop(update);
+     }
      public static void RemovePreFixedUpdate(IFixedUpdate update)
      {
           inPreFixedUpdate.RemoveLoop(update.MyFixedUpdate);
      }
      
+     
+     public static void AddPostFixedUpdate(System.Action update)
+     {
+          inPostFixedUpdate.AddLoop(update);
+     }
      public static void AddPostFixedUpdate(IFixedUpdate update)
      {
           inPostFixedUpdate.AddLoop(update.MyFixedUpdate);
      }
-     
+     public static void RemovePostFixedUpdate(System.Action update)
+     {
+          inPostFixedUpdate.RemoveLoop(update);
+     }
      public static void RemovePostFixedUpdate(IFixedUpdate update)
      {
           inPostFixedUpdate.RemoveLoop(update.MyFixedUpdate);
@@ -249,28 +317,43 @@ public static class EngineUpdate
      #endregion
      
      #region LateUpdate
+     public static void AddPreLateUpdate(System.Action update)
+     {
+          inPreLateUpdate.AddLoop(update);
+     }
      public static void AddPreLateUpdate(ILateUpdate update)
      {
          inPreLateUpdate.AddLoop(update.MyLateUpdate);
+     }
+     
+     public static void RemovePreLateUpdate(System.Action update)
+     {
+          inPreLateUpdate.RemoveLoop(update);
      }
 
      public static void RemovePreLateUpdate(ILateUpdate update)
      {
          inPreLateUpdate.RemoveLoop(update.MyLateUpdate);
      }
-
+     
+     
+     public static void AddPostLateUpdate(System.Action update)
+     {
+          inPostLateUpdate.AddLoop(update);
+     }
      public static void AddPostLateUpdate(ILateUpdate update)
      {
          inPostLateUpdate.AddLoop(update.MyLateUpdate);
      }
-
+     public static void RemovePostLateUpdate(System.Action update)
+     {
+         inPostLateUpdate.RemoveLoop(update);
+     }
      public static void RemovePostLateUpdate(ILateUpdate update)
      {
-         inPostLateUpdate.RemoveLoop(update.MyLateUpdate);
+          inPostLateUpdate.RemoveLoop(update.MyLateUpdate);
      }
-
      #endregion
-     
 
      // Remove a system from the player loop
      public static void RemoveSystem(ref PlayerLoopSystem loopSystem, in PlayerLoopSystem systemToRemove) 
