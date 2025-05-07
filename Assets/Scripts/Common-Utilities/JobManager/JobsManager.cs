@@ -5,8 +5,9 @@ using UnityEngine;
 using Unity.Jobs;
 using UnityEngine.Jobs;
 using UnityEngine.SceneManagement;
+using SystemEngineUpdate;
 
-public class JobsManager : ILateUpdate
+public class JobsManager : MySystem<JobsManager>, IPostLateUpdate , ILoadScene ,IQuit
 {
     class JobsWrapper : IDoubleZeldaElement<JobsWrapper>
     {
@@ -50,8 +51,6 @@ public class JobsManager : ILateUpdate
     }
     
     private static DoubleZeldaList<JobsWrapper> _jobHandles = new DoubleZeldaList<JobsWrapper>();
-
-    private static JobsManager instance;
 
     #region Creates IJobParallelForTransform
     public static JobHandle Create<T>(ref T job, Transform[] transformArray, bool delayed ,Action<JobHandle> actionToComplete, Action dispose) where T : struct,IJobParallelForTransform
@@ -150,7 +149,7 @@ public class JobsManager : ILateUpdate
         return ref jobHandle;
     }
     
-    public void MyLateUpdate()
+    public void PostLateUpdate()
     {
         foreach (var jobs in _jobHandles)
         {
@@ -162,23 +161,14 @@ public class JobsManager : ILateUpdate
         }
     }
 
-    private static void OnDestroy(Scene scene, LoadSceneMode loadSceneMode)
+    public void OnLoadScene(Scene arg0, LoadSceneMode loadSceneMode)
     {
         if (loadSceneMode == LoadSceneMode.Single)
-            instance.Clear();
+            instance.Quit();
     }
 
-    private void Clear()
+    public void Quit()
     {
         _jobHandles.Clear();
-    }
-    
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void Init()
-    {
-        instance = new JobsManager();
-        UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnDestroy;
-        EngineUpdate.AddPostLateUpdate(instance);
-        EngineUpdate.onQuit += instance.Clear;
     }
 }

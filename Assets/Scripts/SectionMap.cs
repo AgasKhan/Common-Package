@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using SystemEngineUpdate;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -14,6 +15,4 @@ public class SectionMap : MonoBehaviour, IUpdateManager, ILateUpdateManager, IFi
     {
         OnUpdateEvnt?.Invoke();
     }
-
-  
 }

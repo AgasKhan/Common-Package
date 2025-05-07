@@ -4,151 +4,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
 
-public interface IEnable
+namespace SystemEngineUpdate
 {
-    bool Enable {get;}
-}
-
-public interface IUpdate 
-{
-    public void MyUpdate();
-}
-
-public interface ILateUpdate 
-{
-    public void MyLateUpdate();
-}
-
-public interface IEndUpdate
-{
-    public void MyEndUpdate();
-}
-
-public interface IDeferredUpdate : IIndexed
-{
-    public void MyDeferredUpdate();
-}
-
-public interface IFixedUpdate
-{
-    public void MyFixedUpdate();
-}
-
-public interface IUpdateManager
-{
-    public static IUpdateManager operator + (IUpdateManager lvalue, IUpdate rvalue)
-    {
-        lvalue.OnUpdateEvnt += rvalue.MyUpdate;
-        return lvalue;
-    }
-
-    public static IUpdateManager operator - (IUpdateManager lvalue, IUpdate rvalue)
-    {
-        lvalue.OnUpdateEvnt -= rvalue.MyUpdate;
-        return lvalue;
-    }
-
-    public event UnityAction OnUpdateEvnt;
-}
-
-public interface ILateUpdateManager
-{
-    public static ILateUpdateManager operator + (ILateUpdateManager lvalue, ILateUpdate rvalue)
-    {
-        lvalue.OnLateUpdateEvnt += rvalue.MyLateUpdate;
-        return lvalue;
-    }
-    
-    public static ILateUpdateManager operator - (ILateUpdateManager lvalue, ILateUpdate rvalue)
-    {
-        lvalue.OnLateUpdateEvnt -= rvalue.MyLateUpdate;
-        return lvalue;
-    }
-    
-    public event UnityAction OnLateUpdateEvnt;
-}
-
-public interface IEndUpdateManager
-{
-    public static IEndUpdateManager operator + (IEndUpdateManager lvalue, IEndUpdate rvalue)
-    {
-        lvalue.OnEndUpdateEvnt += rvalue.MyEndUpdate;
-        return lvalue;
-    }
-    
-    public static IEndUpdateManager operator - (IEndUpdateManager lvalue, IEndUpdate rvalue)
-    {
-        lvalue.OnEndUpdateEvnt -= rvalue.MyEndUpdate;
-        return lvalue;
-    }
-    
-    public event UnityAction OnEndUpdateEvnt;
-}
-
-public interface IFixedUpdateManager
-{
-    public static IFixedUpdateManager operator + (IFixedUpdateManager lvalue, IFixedUpdate rvalue)
-    {
-        lvalue.OnFixedUpdateEvnt += rvalue.MyFixedUpdate;
-        return lvalue;
-    }
-    
-    public static IFixedUpdateManager operator - (IFixedUpdateManager lvalue, IFixedUpdate rvalue)
-    {
-        lvalue.OnFixedUpdateEvnt -= rvalue.MyFixedUpdate;
-        return lvalue;
-    }
-    
-    public event UnityAction OnFixedUpdateEvnt;
-}
-
-public interface IDeferredUpdateManager
-{
-    public static IDeferredUpdateManager operator + (IDeferredUpdateManager lvalue, IDeferredUpdate rvalue)
-    {
-        lvalue.Add(rvalue);
-        return lvalue;
-    }
-    
-    public static IDeferredUpdateManager operator - (IDeferredUpdateManager lvalue, IDeferredUpdate rvalue)
-    {
-        lvalue.Remove(rvalue);
-        return lvalue;
-    }
-
-    public void Add(IDeferredUpdate deferredUpdate);
-    public void Remove(IDeferredUpdate deferredUpdate);
-}
-
-public interface IDataOrientedUpdateManager
-{
-    public delegate void Delegate<T>(ref T obj);
-    
-    public void Add<T>(T Object, Delegate<T> update, GmFPSTrehold? gmFPSTrehold = null) where T : IIndexed;
-
-    public void Remove<T>(T Object, Delegate<T> update) where T : IIndexed;
-}
-
-public interface ISuperUpdateManager : IUpdateManager, IFixedUpdateManager, ILateUpdateManager, IEndUpdateManager, IDeferredUpdateManager, IDataOrientedUpdateManager
-{
-}
-
-namespace UpdateManager
-{
-    public interface IDelayedAction
-    {
-        /// <summary>
-        /// Cola de acciones que se ejecutaran uno a la vez y en sucecion
-        /// </summary>
-        public event UnityAction EventQueue;
-
-        /// <summary>
-        /// Cola de coroutines que se ejecutaran una a la vez y en sucecion
-        /// </summary>
-        public IEnumerator RoutineQueue { set; }
-    }
-    
-
     public class DataOrientedUpdate : IUpdate, IDataOrientedUpdateManager
     {
         public abstract class Data : IUpdate, IDisposable
@@ -169,7 +26,7 @@ namespace UpdateManager
         {
             public override bool Enable => _updateList.Count > 0;
 
-            private GmFPSTrehold gmFPSTrehold;
+            private FPSTreholdSelector gmFPSTrehold;
             
             private RotatingList<T> _updateList = new();
 
@@ -177,7 +34,7 @@ namespace UpdateManager
 
             private System.Action _update;
 
-            public Data(IDataOrientedUpdateManager.Delegate<T> action , GmFPSTrehold? gmFPSTrehold)
+            public Data(IDataOrientedUpdateManager.Delegate<T> action , FPSTreholdSelector? gmFPSTrehold)
             {
                 _delegate = action;
                 
@@ -243,7 +100,7 @@ namespace UpdateManager
         
         public int Index { get; set; }
 
-        public void Add<T>(T Object, IDataOrientedUpdateManager.Delegate<T> update, GmFPSTrehold? gmFPSTrehold = null) where T : IIndexed
+        public void Add<T>(T Object, IDataOrientedUpdateManager.Delegate<T> update, FPSTreholdSelector? gmFPSTrehold = null) where T : IIndexed
         {
             if (_dataOriented.TryGetValue(update, out var value))
             {
@@ -288,7 +145,7 @@ namespace UpdateManager
         
     public class DeferredUpdateManager : IDeferredUpdateManager
     {
-        public GmFPSTrehold gmFPSTrehold;
+        public FPSTreholdSelector gmFPSTrehold;
         
         private RotatingList<IDeferredUpdate> _updateList = new();
         

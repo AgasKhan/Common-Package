@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -13,16 +14,16 @@ using System.Text;
 [CreateAssetMenu(menuName = "DependencyInjectionScriptable")]
 public class DependencyInjectionScriptable : ScriptableObject
 {
-    [DefaultDependency(Dependency.PlayerLife5)]
-    public int Prueba;
+    #if UNITY_EDITOR
+
+    [SerializeField, DefaultDependency(Dependency.PlayerLife5)]
+    private int prueba;
+    
+    [SerializeField, Min(1)]
+    private float timeToReload;
     
     [SerializeField]
     public DependencyInjectData data;
-    
-    #if UNITY_EDITOR
-
-    [SerializeField, Min(1)]
-    private float timeToReload;
 
     private bool inQueue;
 

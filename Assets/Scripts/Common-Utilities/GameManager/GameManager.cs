@@ -2,9 +2,9 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using SystemEngineUpdate;
 using UnityEngine;
 using UnityEngine.Events;
-using UpdateManager;
 
 [DefaultExecutionOrder(-1)]
 public partial class GameManager : MonoBehaviour, ISuperUpdateManager
@@ -113,7 +113,7 @@ public partial class GameManager : MonoBehaviour, ISuperUpdateManager
     
 
     [SerializeField]
-    private GmFPSTrehold deferredUpdateTrehold;
+    private FPSTreholdSelector deferredUpdateTrehold;
     
     [SerializeField]
     private FSMGameManager _fsmGameManager;
@@ -158,7 +158,7 @@ public partial class GameManager : MonoBehaviour, ISuperUpdateManager
         _deferredUpdateManager.Remove(deferredUpdate);
     }
     
-    void IDataOrientedUpdateManager.Add<T>(T Object, IDataOrientedUpdateManager.Delegate<T> update, GmFPSTrehold? gmFPSTrehold)
+    void IDataOrientedUpdateManager.Add<T>(T Object, IDataOrientedUpdateManager.Delegate<T> update, FPSTreholdSelector? gmFPSTrehold)
     {
         GamePlayManager.Add(Object, update, gmFPSTrehold);
     }

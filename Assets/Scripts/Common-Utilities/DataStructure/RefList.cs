@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+[System.Serializable]
 public class RefList<T> : IList, IList<T>
 {
     public bool IsFixedSize => false;

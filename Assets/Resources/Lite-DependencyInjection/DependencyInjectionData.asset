@@ -12,7 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 384c0d7b99bda854b82e117a9e9fac63, type: 3}
   m_Name: DependencyInjectionData
   m_EditorClassIdentifier: 
-  Prueba: 79
+  prueba: 106
+  timeToReload: 5
   data:
     INT32:
       elements:
@@ -20,9 +21,9 @@ MonoBehaviour:
         name: PlayerLife5
         scenesAndValues:
         - sceneAsset: {fileID: 0}
-          value: 79
+          value: 106
         - sceneAsset: {fileID: 102900000, guid: 2cda990e2423bbf4892e6590ba056729, type: 3}
-          value: 254
+          value: 181
       - indexInArray: 1
         name: PlayerLife3
         scenesAndValues:
@@ -51,4 +52,3 @@ MonoBehaviour:
       - indexInArray: 0
         name: asf
         scenesAndValues: []
-  timeToReload: 5

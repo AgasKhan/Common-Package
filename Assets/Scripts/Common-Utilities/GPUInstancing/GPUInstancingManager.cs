@@ -2,11 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
+using SystemEngineUpdate;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Jobs;
 using UnityEngine.Rendering;
@@ -14,7 +14,7 @@ using UnityEngine.SceneManagement;
 
 namespace GPUInstancing
 {
-    public class GPUInstancingManager : IUpdate, ILateUpdate
+    public class GPUInstancingManager : MySystem<GPUInstancingManager>, IPostUpdate, IPostLateUpdate, ILoadScene ,IQuit
     {
         abstract class RenderData : IDisposable
         {
@@ -339,8 +339,8 @@ namespace GPUInstancing
                     transformAccessArray.Dispose();
             }
         }
-        
-        public static GPUInstancingManager Instance { get; private set; }
+
+        public static GPUInstancingManager Instance => instance;
 
         private readonly Dictionary<int, RenderData> _renderDatas = new();
 
@@ -384,7 +384,7 @@ namespace GPUInstancing
             data.Remove(element);
         }
         
-        void IUpdate.MyUpdate()
+        public void PostUpdate()
         {
             if(Enable)
                 foreach (var keyValue in _renderDatas)
@@ -393,7 +393,7 @@ namespace GPUInstancing
                 }
         }
 
-        void ILateUpdate.MyLateUpdate()
+        public void PostLateUpdate()
         {
             if(Enable)
                 foreach (var keyValue in _renderDatas)
@@ -401,34 +401,25 @@ namespace GPUInstancing
                     keyValue.Value.LateUpdate();
                 }
         }
-        
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        private static void Init()
+
+        public void OnLoadScene(Scene arg0, LoadSceneMode loadSceneMode)
         {
-            Instance = new GPUInstancingManager();
-            UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnDestroy;
-            EngineUpdate.AddPostUpdate(Instance);
-            EngineUpdate.AddPostLateUpdate(Instance);
-            EngineUpdate.onQuit += Instance.Clear;
-        }
-        
-        private static void OnDestroy(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
-        {
-            if(mode == LoadSceneMode.Additive)
+            if(loadSceneMode == LoadSceneMode.Additive)
                 return;
             
-            Instance.Clear();
-        }
-
-        private void Clear()
-        {
             foreach (var keyValue in _renderDatas)
             {
                 keyValue.Value.Dispose();
             }
         }
 
-
+        public void Quit()
+        {
+            foreach (var keyValue in _renderDatas)
+            {
+                keyValue.Value.Dispose();
+            }
+        }
     }
 
     [BurstCompile]

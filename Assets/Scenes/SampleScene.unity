@@ -335,8 +335,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3bbfbbb6e008bf2409b7239692210938, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  entero: 254
-  ente2: 254
+  entero: 200
+  ente2: 200
   cadenaTexto: casiiita
   vector3: {x: 0, y: 0, z: 0}
   <vector2>k__BackingField: {x: 0, y: 0}
@@ -474,23 +474,23 @@ MonoBehaviour:
     objectPool: {fileID: 11400000, guid: d4f784a23c8a48a4f96e94f6f3f3974b, type: 2}
     poolObjects:
     - poolObjectsData:
-        rid: 534632163450552540
+        rid: 534632192618266824
       defaultParent: {fileID: 0}
       pool: []
     - poolObjectsData:
-        rid: 534632163450552541
+        rid: 534632192618266825
       defaultParent: {fileID: 0}
       pool: []
   references:
     version: 2
     RefIds:
-    - rid: 534632163450552540
+    - rid: 534632192618266824
       type: {class: ObjectPoolData/PoolObjectsData, ns: , asm: Assembly-CSharp}
       data:
         prefab: {fileID: 0}
         utilityRefence: []
         amount: 0
-    - rid: 534632163450552541
+    - rid: 534632192618266825
       type: {class: ObjectPoolData/PoolObjectsData, ns: , asm: Assembly-CSharp}
       data:
         prefab: {fileID: 0}

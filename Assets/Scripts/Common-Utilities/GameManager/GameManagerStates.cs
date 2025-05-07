@@ -1,10 +1,9 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using SystemEngineUpdate;
 using UnityEngine;
 using UnityEngine.Events;
-using UpdateManager;
-
 public partial class GameManager
 {
     public interface IGameManagerState : ISuperUpdateManager, IDelayedAction
@@ -47,10 +46,10 @@ public partial class GameManager
     private class GameManagerState : IState<FSMGameManager>
     {
         [SerializeField]
-        private GmFPSTrehold frameRateEventTreshold;
+        private FPSTreholdSelector frameRateEventTreshold;
         
         [SerializeField]
-        private GmFPSTrehold frameRateDeferredTreshold;
+        private FPSTreholdSelector frameRateDeferredTreshold;
         
         [SerializeField]
         public UnityEvent onEnter = new UnityEvent();
@@ -167,7 +166,7 @@ public partial class GameManager
             set => onAddRoutineQueue.Invoke(value, routineQueue);
         }
 
-        public GmFPSTrehold DeferredTrehold
+        public FPSTreholdSelector DeferredTrehold
         {
             set => _deferredUpdates.gmFPSTrehold = value;
         }
@@ -208,7 +207,7 @@ public partial class GameManager
             _deferredUpdates.Remove(deferredUpdate);
         }
         
-        public void Add<T>(T Object, IDataOrientedUpdateManager.Delegate<T> update, GmFPSTrehold? gmFPSTrehold = null) where T : IIndexed
+        public void Add<T>(T Object, IDataOrientedUpdateManager.Delegate<T> update, FPSTreholdSelector? gmFPSTrehold = null) where T : IIndexed
         {
             dataOrientedUpdate.Add(Object, update, gmFPSTrehold);
         }
@@ -218,18 +217,18 @@ public partial class GameManager
             dataOrientedUpdate.Remove(Object, update);
         }
         
-        public void OnEnter(FSMGameManager context, GmFPSTrehold frameRateTreshold)
+        public void OnEnter(FSMGameManager context, FPSTreholdSelector frameRateTreshold)
         {
             _isEnter = true;
             _coroutine ??= context.Context.StartCoroutine(Routine(frameRateTreshold));//Ejecuto la corrutina si no se estaba ejecutando
         }
 
-        public void OnStay(FSMGameManager context, GmFPSTrehold frameRateTreshold)
+        public void OnStay(FSMGameManager context, FPSTreholdSelector frameRateTreshold)
         {
             OnUpdateEvnt?.Invoke();
         }
         
-        public void OnLate(FSMGameManager gameManager, GmFPSTrehold frameRateTreshold)
+        public void OnLate(FSMGameManager gameManager, FPSTreholdSelector frameRateTreshold)
         {
             OnLateUpdateEvnt?.Invoke();
             
@@ -247,22 +246,22 @@ public partial class GameManager
             _deferredUpdates.MyUpdate();
         }
         
-        public void OnFixed(FSMGameManager gameManager, GmFPSTrehold frameRateTreshold)
+        public void OnFixed(FSMGameManager gameManager, FPSTreholdSelector frameRateTreshold)
         {
             OnFixedUpdateEvnt?.Invoke();
         }
 
-        public void OnEnd(FSMGameManager gameManager, GmFPSTrehold frameRateTreshold)
+        public void OnEnd(FSMGameManager gameManager, FPSTreholdSelector frameRateTreshold)
         {
             OnEndUpdateEvnt?.Invoke();
         }
 
-        public void OnExit(FSMGameManager context, GmFPSTrehold frameRateTreshold)
+        public void OnExit(FSMGameManager context, FPSTreholdSelector frameRateTreshold)
         {
             _isEnter = false;
         }
 
-        private IEnumerator Routine(GmFPSTrehold FrameRateTreshold)
+        private IEnumerator Routine(FPSTreholdSelector FrameRateTreshold)
         {
             while (_isEnter)
             {

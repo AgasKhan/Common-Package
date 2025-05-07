@@ -4,7 +4,7 @@ using System.Collections.Generic;
 public enum Dependency
 {
 
-	///<summary> Type: System.Int32 <br/>Actual value: 79 </summary>
+	///<summary> Type: System.Int32 <br/>Actual value: 106 </summary>
 	PlayerLife5, 
 	///<summary> Type: System.String <br/>Actual value: casiiita </summary>
 	PlayerName, 

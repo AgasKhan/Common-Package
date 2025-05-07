@@ -40,6 +40,8 @@ public class GridSpawn : MonoBehaviour
     {
         yield return null;
         
+        Debug.Log("MyStart");
+        
         var manager = GPUInstancingManager.Instance;
 
         manager.Enable = false;
@@ -70,12 +72,10 @@ public class GridSpawn : MonoBehaviour
 
                     count.z = count.z / 60;
 
-                    if (EngineUpdate.BelowLowFrameRate)
+                    if (SystemEngineUpdate.EngineUpdate.BelowLowFrameRate)
                         yield return null;
                 }
             }
-            
-            this.LogAndSelect("Z completed");
         }
 
         manager.Enable = true;
