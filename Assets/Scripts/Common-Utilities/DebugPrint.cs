@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -41,12 +42,12 @@ public static class DebugPrint
                     pantalla.Append(palabra);
             }
             
-            public void Print(ref string str)
+            public void Print(ref StringBuilder str)
             {        
                 if(!LenghtChk)
                     return;
                 
-                str += pantalla;
+                str.Append(pantalla);
                 Clear();
             }
 
@@ -65,14 +66,16 @@ public static class DebugPrint
             }
         }
         
-        private static Dictionary<int, (DateTime date, string message)> highlightEndTimes = new ();
-        private static HashSet<Object> toSelect = new();
+        private static Dictionary<int, (DateTime date, string message)> _highlightEndTimes = new ();
+        private static HashSet<Object> _toSelect = new();
         
-        static PrintF debug = new(Debug.Log);
-        static PrintF warning = new(Debug.LogWarning);
-        static PrintF error = new(Debug.LogError);
+        private static PrintF _debug = new(Debug.Log);
+        private static PrintF _warning = new(Debug.LogWarning);
+        private static PrintF _error = new(Debug.LogError);
+
+        private static StringBuilder _stringBuilder = new();
         
-        private static bool Chk => debug.LenghtChk || error.LenghtChk || warning.LenghtChk;
+        private static bool Chk => _debug.LenghtChk || _error.LenghtChk || _warning.LenghtChk;
         
         static DebugPrint()
         {
@@ -83,7 +86,7 @@ public static class DebugPrint
             EditorApplication.hierarchyWindowItemOnGUI += HierarchyHighlight_OnGUI;
         }
 
-        static event EditorApplication.CallbackFunction ExecuteInNextFrame
+        private static event EditorApplication.CallbackFunction ExecuteInNextFrame
         {
             add => EditorApplication.delayCall += value;
             remove => EditorApplication.delayCall -= value;
@@ -111,15 +114,15 @@ public static class DebugPrint
         
         private static void Select(Object obj)
         {
-            if (toSelect.Count == 0)
+            if (_toSelect.Count == 0)
                 ExecuteInNextFrame += Select;
 
-            toSelect.Add(obj);
+            _toSelect.Add(obj);
         }
         
         private static void Select()
         {
-            var arraySelected = toSelect.ToArray();
+            var arraySelected = _toSelect.ToArray();
 
             Selection.objects = arraySelected;
 
@@ -129,7 +132,7 @@ public static class DebugPrint
             }
             
             
-            toSelect.Clear();
+            _toSelect.Clear();
         }
         
         private static void UpdateHighlightTimes()
@@ -137,7 +140,7 @@ public static class DebugPrint
             DateTime now = DateTime.UtcNow;
 
             List<int> expiredIDs = new();
-            foreach (var kvp in highlightEndTimes)
+            foreach (var kvp in _highlightEndTimes)
             {
                 if (kvp.Value.Item1 <= now)
                     expiredIDs.Add(kvp.Key);
@@ -145,27 +148,27 @@ public static class DebugPrint
 
             foreach (var id in expiredIDs)
             {
-                highlightEndTimes.Remove(id);
+                _highlightEndTimes.Remove(id);
             }
         }
 
-        static void AndSelect(object obj, Component component = null, float duration = 2f)
+        private static void AndSelect(object obj, Component component = null, float duration = 2f)
         {
             if (component != null)
             {
                 int instanceID = component.gameObject.GetInstanceID();
-                highlightEndTimes[instanceID] = (DateTime.UtcNow.AddSeconds(duration), obj.ToString());  // Almacena el ID con 100 frames de duración
+                _highlightEndTimes[instanceID] = (DateTime.UtcNow.AddSeconds(duration), obj.ToString());  // Almacena el ID con 100 frames de duración
                 
                 Select(component.gameObject);
             }
         }
         
-        static void AndOpen(object obj, Component component = null, float duration = 2f)
+        private static void AndOpen(object obj, Component component = null, float duration = 2f)
         {
             if (component != null)
             {
                 int instanceID = component.gameObject.GetInstanceID();
-                highlightEndTimes[instanceID] = (DateTime.UtcNow.AddSeconds(duration), obj.ToString());  // Almacena el ID con 100 frames de duración
+                _highlightEndTimes[instanceID] = (DateTime.UtcNow.AddSeconds(duration), obj.ToString());  // Almacena el ID con 100 frames de duración
                 
                 Select(component.gameObject);
                 EditorUtility.OpenPropertyEditor(component.gameObject);
@@ -174,18 +177,17 @@ public static class DebugPrint
 
         private static void PrintCombinado()
         {
-            string str = string.Empty;
+            _error.Print(ref _stringBuilder);
+            _warning.Print(ref _stringBuilder);
+            _debug.Print(ref _stringBuilder);
             
-            error.Print(ref str);
-            warning.Print(ref str);
-            debug.Print(ref str);
-            
-            Debug.Log(str);
+            Debug.Log(_stringBuilder);
+            _stringBuilder.Clear();
         }
 
-        public static bool ShouldHighlight(int instanceID, out string message)
+        private static bool ShouldHighlight(int instanceID, out string message)
         {
-            var b = highlightEndTimes.TryGetValue(instanceID, out var value);
+            var b = _highlightEndTimes.TryGetValue(instanceID, out var value);
             message = value.message;
             return b;
         }
@@ -193,14 +195,84 @@ public static class DebugPrint
     #endif
 
     #region Runtime
-
-        static string FormatComponent(Component component, object t)
+        struct LogRegistry
         {
-            #if DEBUG
+            public string message;
+            public string stackTrace;
+            public LogType LogType;
+        }
+    
+        private static bool _enableRegister;
+
+        private static ConcurrentQueue<LogRegistry> _logRegistries = new();
+        
+        public static bool EnableRegister
+        {
+            get => _enableRegister;
+            set
+            {
+                if(value==_enableRegister)
+                    return;
+
+                _enableRegister = value;
+
+                if (_enableRegister)
+                {
+                    LogMessageReceivedThreaded += OnLogMessageReceivedThreaded;
+                }
+                else
+                {
+                    LogMessageReceivedThreaded -= OnLogMessageReceivedThreaded;
+                }
+            }
+        }
+         
+        /// <summary>
+        /// Lo mismo que Application.logMessageReceivedThreaded
+        /// </summary>
+        public static event Application.LogCallback LogMessageReceivedThreaded
+        {
+            add
+            {
+                Application.logMessageReceivedThreaded += value;
+            }
+            remove
+            {
+                Application.logMessageReceivedThreaded -= value;
+            }
+        }
+        
+        private static void OnLogMessageReceivedThreaded(string logString, string stacktrace, LogType type)
+        {
+            _logRegistries.Enqueue(new LogRegistry(){message = logString, stackTrace = stacktrace, LogType = type});    
+        }
+    
+        private static string FormatComponent(Component component, object t)
+        {
+            if(component!=null)
                 return $"{t}\n\t-{component}: {component?.GetInstanceID()}";
-            #else
-                return string.Empty;
-            #endif
+            
+            return t.ToString();
+        }
+
+        /// <summary>
+        /// Funcion pensada para cuando se desea obtener el output de la consola
+        /// <br/>
+        /// Primero debe habilitarse el EnableRegistry para funcionar
+        /// </summary>
+        /// <param name="message"></param>
+        /// <param name="stackTrace"></param>
+        /// <param name="logType"></param>
+        /// <returns>En caso que exista informacion que obtener retorna verdadero</returns>
+        public static bool TryDequeueLogRegistry(out string message, out string stackTrace, out LogType logType)
+        {
+            var ret = _logRegistries.TryDequeue(out var result);
+
+            message = result.message;
+            stackTrace = result.stackTrace;
+            logType = result.LogType;
+
+            return ret;
         }
         
         /// <summary>
@@ -211,9 +283,12 @@ public static class DebugPrint
         /// <param name="duration"></param>
         public static void Error(this Component component, object obj)
         {
-            #if DEBUG
+            #if DEBUG 
                 Debug.LogError(FormatComponent(component, obj), component);
-            #endif        
+            #else
+            if (EnableRegister)
+                OnLogMessageReceivedThreaded(FormatComponent(component, obj), string.Empty, LogType.Error);
+            #endif
         }
         
         /// <summary>
@@ -226,6 +301,9 @@ public static class DebugPrint
         {
             #if DEBUG
                 Debug.LogWarning(FormatComponent(component, obj), component);
+            #else
+            if (EnableRegister)
+                OnLogMessageReceivedThreaded(FormatComponent(component, obj), string.Empty, LogType.Warning);
             #endif     
         }
         
@@ -239,7 +317,10 @@ public static class DebugPrint
         {
             #if DEBUG
                 Debug.Log(FormatComponent(component, obj), component);
-            #endif     
+            #else
+             if (EnableRegister)
+                OnLogMessageReceivedThreaded(FormatComponent(component, obj), string.Empty, LogType.Log);
+            #endif  
         }
         
         /// <summary>
@@ -250,9 +331,7 @@ public static class DebugPrint
         /// <param name="duration"></param>
         public static void Log(this Component component, object obj)
         {
-            #if DEBUG
-                Log(obj, component);
-            #endif
+            Log(obj, component);
         }
         
 
@@ -264,13 +343,11 @@ public static class DebugPrint
         /// <param name="duration"></param>
         public static void LogAndSelect(object obj, Component component = null, float duration = 2f)
         {
-            #if DEBUG
-                #if UNITY_EDITOR
-                    AndSelect(obj, component, duration);
-                #endif
-                
-                Log(obj, component);
+            #if UNITY_EDITOR
+                AndSelect(obj, component, duration);
             #endif
+            
+            Log(obj, component);
         }
         
         /// <summary>
@@ -284,8 +361,6 @@ public static class DebugPrint
             LogAndSelect(FormatComponent(component, obj),component ,duration);
         }
         
-        
-        
         /// <summary>
         /// Realiza el log y selecciona y abre las propiedades del objeto
         /// </summary>
@@ -294,15 +369,11 @@ public static class DebugPrint
         /// <param name="duration"></param>
         public static void LogAndOpen(object obj, Component component = null, float duration = 2f)
         {
-            #if DEBUG
-            
-                #if UNITY_EDITOR
-                    AndOpen(obj, component, duration);
-                #endif
-                
-                Log(obj, component);
-            
+            #if UNITY_EDITOR
+                AndOpen(obj, component, duration);
             #endif
+            
+            Log(obj, component);
         }
         
         
@@ -323,18 +394,16 @@ public static class DebugPrint
         /// </summary>
         /// <param name="component"></param>
         /// <param name="t"></param>
-        public static void ConsecutiveLog(object t)
+        public static void ConsecutiveLog(object obj, Component component = null)
         {
-            #if DEBUG
                 #if UNITY_EDITOR
                     if (!Chk)
                         ExecuteInNextFrame += PrintCombinado;
                     
-                    debug.Add(t.ToString());
+                    _debug.Add(FormatComponent(component, obj));
                 #else
-                    Debug.Log(t);
+                    Log(obj, component);
                 #endif
-            #endif
         }
         
         /// <summary>
@@ -344,26 +413,24 @@ public static class DebugPrint
         /// <param name="t"></param>
         public static void ConsecutiveLog(this Component component, object t)
         {
-            ConsecutiveLog(FormatComponent(component, t));
+            ConsecutiveLog(t, component);
         }
-        
-        
 
         /// <summary>
         /// Logs consecutivos, que se acumulan por frame
         /// </summary>
         /// <param name="component"></param>
         /// <param name="t"></param>
-        public static void ConsecutiveWarning(object t)
+        public static void ConsecutiveWarning(object obj, Component component = null)
         {        
             #if DEBUG
                 #if UNITY_EDITOR
                     if (!Chk)
                         ExecuteInNextFrame += PrintCombinado;
                     
-                    warning.Add($"<color=yellow>{t.ToString()}</color>");
+                    _warning.Add($"<color=yellow>{FormatComponent(component, obj)}</color>");
                 #else
-                    Debug.LogWarning(t);
+                    Warning(component, obj);
                 #endif
             #endif
         }
@@ -373,9 +440,9 @@ public static class DebugPrint
         /// </summary>
         /// <param name="component"></param>
         /// <param name="t"></param>
-        public static void ConsecutiveWarning(this Component component, object t)
+        public static void ConsecutiveWarning(this Component component, object obj)
         {        
-            ConsecutiveWarning(FormatComponent(component, t));
+            ConsecutiveWarning(obj, component);
         }
 
         
@@ -384,16 +451,16 @@ public static class DebugPrint
         /// </summary>
         /// <param name="component"></param>
         /// <param name="t"></param>
-        public static void ConsecutiveError(object t)
+        public static void ConsecutiveError(object obj, Component component = null)
         {
             #if DEBUG
                 #if UNITY_EDITOR
                     if (!Chk)
                         ExecuteInNextFrame += PrintCombinado;
                     
-                    error.Add($"<color=red>{t}</color>");
+                    _error.Add($"<color=red>{FormatComponent(component, obj)}</color>");
                 #else
-                    Debug.LogError(t);
+                    Error(component, obj);
                 #endif
             #endif
         }
@@ -405,7 +472,7 @@ public static class DebugPrint
         /// <param name="t"></param>
         public static void ConsecutiveError(this Component component, object t)
         {
-            ConsecutiveError(FormatComponent(component, t));
+            ConsecutiveError(t, component);
         }
     #endregion
 }

@@ -18,7 +18,7 @@ namespace GPUInstancing
     {
         abstract class RenderData : IDisposable
         {
-            protected static readonly ParallelOptions parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = 64 };
+            protected static readonly ParallelOptions parallelOptions = new ParallelOptions {  MaxDegreeOfParallelism = Environment.ProcessorCount };
             
             protected const int jobTrehold = 500;
 
